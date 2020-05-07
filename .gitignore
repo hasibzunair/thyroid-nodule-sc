@@ -3,6 +3,16 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+
+# Custom
+dataset/
+models/
+
+*.h5
+*.png
+*.jpg
+
+
 # C extensions
 *.so
 
