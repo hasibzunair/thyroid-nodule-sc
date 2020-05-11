@@ -5,8 +5,8 @@ __pycache__/
 
 
 # Custom
-dataset/
-models/
+datasets/
+logs/
 
 *.h5
 *.png
