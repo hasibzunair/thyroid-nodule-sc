@@ -62,7 +62,7 @@ def unet(input_size = (256,256,1)):
     # Compile model with optim and loss
     optim = 'adam' 
     
-    # If bin seg, use bce loss, or categorical_crossentropy for multi class
+    # If bin seg, use bce loss
     loss_func = 'binary_crossentropy'  
     
     model.compile(optimizer = optim, loss = loss_func, metrics = [M.jacard, M.dice_coef])
@@ -78,7 +78,7 @@ def unet_backbone(backbone, input_size, encoder_weights=None):
     # Compile model with optim and loss
     optim = 'adam' 
     
-    # If bin seg, use bce loss, or categorical_crossentropy for multi class
+    # If bin seg, use bce loss
     loss_func = 'binary_crossentropy'  
     
     model.compile(optimizer = optim, loss = loss_func, metrics = [M.jacard, M.dice_coef])
