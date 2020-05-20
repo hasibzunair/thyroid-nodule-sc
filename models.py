@@ -9,6 +9,8 @@ from keras.optimizers import *
 from keras.layers import *        
 import tensorflow as tf
 
+import segmentation_models as sm
+
 import metrics as M
 import losses as L
 
@@ -67,3 +69,18 @@ def unet(input_size = (256,256,1)):
 
     return model
 
+
+
+def unet_backbone(backbone, input_size, encoder_weights=None):
+    
+    model = sm.Unet(backbone_name=backbone, input_shape=input_size, classes=1, activation='sigmoid', encoder_weights=encoder_weights)
+    
+    # Compile model with optim and loss
+    optim = 'adam' 
+    
+    # If bin seg, use bce loss, or categorical_crossentropy for multi class
+    loss_func = 'binary_crossentropy'  
+    
+    model.compile(optimizer = optim, loss = loss_func, metrics = [M.jacard, M.dice_coef])
+    
+    return model
