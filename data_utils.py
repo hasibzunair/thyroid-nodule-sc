@@ -34,6 +34,15 @@ class DataGenerator(keras.utils.Sequence):
         'Generates data containing batch_size samples' # X : (n_samples, *dim, n_channels)
         # Generate data
         X = self.Xdata[indexes]
+
+        #Corruption part of the code
+
+
+
+
+
+
+
         y = self.Ydata[indexes]
 
         return X, y

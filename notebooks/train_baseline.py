@@ -6,7 +6,7 @@
 # %%
 # Name data and config types
 DATASET_NAME = "data0" # name of the npz file
-CFG_NAME = "unet" # name of the architecture/configuration
+CFG_NAME = "unet_generator" # name of the architecture/configuration
 
 # %%
 # Import libraries
@@ -197,6 +197,8 @@ print("Train and validate on -------> ", x_train.shape, x_test.shape, y_train.sh
 # Train
 batch_size = 16 
 epochs = 100000
+
+
 # model.fit(x_train, y_train,
 #                 batch_size=batch_size,
 #                 epochs=epochs,
@@ -213,16 +215,15 @@ epochs = 100000
 #           'n_channels': 1,
 #           'shuffle': True}
 
-training_generator = data_utils.DataGenerator(x_train, y_train, batch_size=32, shuffle=True)
-validation_generator = data_utils.DataGenerator(x_test, y_test, batch_size=32, shuffle=True)
+training_generator = data_utils.DataGenerator(x_train, y_train, batch_size=batch_size, shuffle=True)
+validation_generator = data_utils.DataGenerator(x_test, y_test, batch_size=batch_size, shuffle=True)
 
 
 # Train model on dataset
 model.fit_generator(generator=training_generator,
                     validation_data=validation_generator,callbacks=[checkpointer, early_stopping, reduce_lr, csv_logger],
                 shuffle=True,
-                verbose = 2,epochs = epochs)
-
+                verbose = 2,epochs = epochs, steps_per_epoch=len(x_train)//batch_size)
 
 
 
