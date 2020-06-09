@@ -3,13 +3,13 @@ from keras.models import Model
 from keras.layers import Input, concatenate, Conv2D, MaxPooling2D, UpSampling2D, Reshape, core, Dropout
 from keras.optimizers import Adam
 from keras.callbacks import ModelCheckpoint, LearningRateScheduler
-from keras.layers import DepthwiseConv2D
+#from keras.layers import DepthwiseConv2D
 from keras import backend as K
 from keras.optimizers import *
 from keras.layers import *        
 import tensorflow as tf
 
-import segmentation_models as sm
+#import segmentation_models as sm
 
 import metrics as M
 import losses as L
