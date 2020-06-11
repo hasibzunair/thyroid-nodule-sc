@@ -41,7 +41,7 @@ CFG_NAME = "unet_generator_corruption" # name of the architecture/configuration
 # Train
 batch_size = 16
 epochs = 100000
-interval = 5 #save results after every 5 epochs
+interval = 10 #show correct dice and log it after every ? epochs
 
 
 
