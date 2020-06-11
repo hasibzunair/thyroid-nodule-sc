@@ -3,10 +3,6 @@
 # Trains a baseline U-Net
 """
 
-# %%
-# Name data and config types
-DATASET_NAME = "data0" # name of the npz file
-CFG_NAME = "unet_generator" # name of the architecture/configuration
 
 # %%
 # Import libraries
@@ -30,13 +26,31 @@ import sys
 sys.path.insert(0,"..") 
 
 import data_utils
+import classes
 import models as M
 import losses as l
+
+
+
+# %%
+# Name data and config types
+DATASET_NAME = "data0" # name of the npz file
+CFG_NAME = "unet_generator_corruption" # name of the architecture/configuration
+
+# %%
+# Train
+batch_size = 16
+epochs = 100000
+interval = 5 #save results after every 5 epochs
+
+
+
 
 ROOT_DIR = os.path.abspath("../")
 DATASET_FOLDER = "npy_data"
 DATASET_PATH = os.path.join(ROOT_DIR, "datasets", DATASET_FOLDER)
 EXPERIMENT_NAME = "{}_{}".format(DATASET_NAME, CFG_NAME)
+
 
 
 if not os.path.exists(os.path.join(ROOT_DIR, "logs")):
@@ -180,6 +194,8 @@ reduce_lr = ReduceLROnPlateau(monitor='val_jacard', factor=0.1, patience=5, verb
 early_stopping = EarlyStopping(monitor='val_jacard', min_delta=0, verbose=1, patience=8, mode='max', restore_best_weights=True)
 csv_logger = CSVLogger('{}/{}_training.csv'.format(LOG_PATH, EXPERIMENT_NAME))
 
+ie = classes.IntervalEvaluation(model, LOG_PATH, interval, validation_data=(x_test, y_test),
+                                training_data=(x_train, y_train))
 # %%
 """
 ## Split data and train
@@ -193,10 +209,6 @@ y_train = train_labels[:2915]
 y_test = train_labels[2915:]
 print("Train and validate on -------> ", x_train.shape, x_test.shape, y_train.shape, y_test.shape)
 
-# %%
-# Train
-batch_size = 16 
-epochs = 100000
 
 
 # model.fit(x_train, y_train,
@@ -207,21 +219,14 @@ epochs = 100000
 #                 shuffle=True,
 #                 verbose = 2)
 
-# Generators
-
-# # Parameters
-# params = {
-#           'batch_size': batch_size,
-#           'n_channels': 1,
-#           'shuffle': True}
-
-training_generator = data_utils.DataGenerator(x_train, y_train, batch_size=batch_size, shuffle=True)
-validation_generator = data_utils.DataGenerator(x_test, y_test, batch_size=batch_size, shuffle=True)
+#generators
+training_generator = classes.DataGenerator(x_train, y_train, batch_size=batch_size, shuffle=True)
+validation_generator = classes.DataGenerator(x_test, y_test, batch_size=batch_size, shuffle=True)
 
 
 # Train model on dataset
 model.fit_generator(generator=training_generator,
-                    validation_data=validation_generator,callbacks=[checkpointer, early_stopping, reduce_lr, csv_logger],
+                    validation_data=validation_generator,callbacks=[checkpointer, early_stopping, reduce_lr, csv_logger,ie],
                 shuffle=True,
                 verbose = 2,epochs = epochs, steps_per_epoch=len(x_train)//batch_size)
 
