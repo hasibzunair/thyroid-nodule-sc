@@ -87,6 +87,24 @@ print(train_data.shape, train_labels.shape)
 #     fig.axes[1].imshow(mask, cmap='gray')
 #     plt.show()
 
+
+
+# %%
+"""
+## Split data and train
+"""
+
+# %%
+# Split into training and validation sets
+x_train = train_data[:2915]
+x_test = train_data[2915:]
+y_train = train_labels[:2915]
+y_test = train_labels[2915:]
+print("Train and validate on -------> ", x_train.shape, x_test.shape, y_train.shape, y_test.shape)
+
+
+
+
 # %%
 # Plot and save accuravy loss graphs individually
 def plot_loss_accu(history):
@@ -194,21 +212,8 @@ reduce_lr = ReduceLROnPlateau(monitor='val_jacard', factor=0.1, patience=5, verb
 early_stopping = EarlyStopping(monitor='val_jacard', min_delta=0, verbose=1, patience=8, mode='max', restore_best_weights=True)
 csv_logger = CSVLogger('{}/{}_training.csv'.format(LOG_PATH, EXPERIMENT_NAME))
 
-ie = classes.IntervalEvaluation(model, LOG_PATH, interval, validation_data=(x_test, y_test),
+ie = classes.IntervalEvaluation(EXPERIMENT_NAME, LOG_PATH, interval, validation_data=(x_test, y_test),
                                 training_data=(x_train, y_train))
-# %%
-"""
-## Split data and train
-"""
-
-# %%
-# Split into training and validation sets
-x_train = train_data[:2915]
-x_test = train_data[2915:]
-y_train = train_labels[:2915]
-y_test = train_labels[2915:]
-print("Train and validate on -------> ", x_train.shape, x_test.shape, y_train.shape, y_test.shape)
-
 
 
 # model.fit(x_train, y_train,

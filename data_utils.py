@@ -12,7 +12,6 @@ import io
 import math
 from sklearn.metrics import roc_curve, auc
 
-import cv2
 
 
 # import matplotlib as mpl
@@ -46,7 +45,7 @@ def saveCorruptionResults(figure_path, epoch, X, Y, filename, num = 5):
         cnt = 1
         # display input
         ax = plt.subplot(rows, cols, cnt)
-        plt.imshow(X_temp[:,:,0])
+        plt.imshow(X_temp[:,:,0], cmap = 'gray')
         ax.get_yaxis().set_visible(False)
         ax.set_xlabel('Input')
         ax.get_xaxis().set_visible(True)
@@ -127,7 +126,7 @@ def saveResultasPlot(figure_path, epoch, X, Y, Y_pred, filename, num = 5):
         cnt = 1
         # display input
         ax = plt.subplot(rows, cols, cnt)
-        plt.imshow(X_temp)
+        plt.imshow(X_temp[:,:,0],cmap = 'gray')
         ax.get_yaxis().set_visible(False)
         ax.set_xlabel('Input')
         ax.get_xaxis().set_visible(True)

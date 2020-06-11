@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 from sklearn.metrics import accuracy_score
 
 from keras import models
+
 import math
 import glob
 import time
@@ -83,7 +84,7 @@ class IntervalEvaluation(Callback):
 			self.y_train.flatten(), y_pred_train.flatten())
 
 		print(
-			"Training Operating Point:{:.4f}, Accuracy :{:.4f}, Sensitivity:{:.4f}, Specificity: {:.4f}, Dice: {:.4f}".format(
+			"\nTraining Operating Point:{:.4f}, Accuracy :{:.4f}, Sensitivity:{:.4f}, Specificity: {:.4f}, Dice: {:.4f}".format(
 				operation_point, accuracy, sensitivity, specificity, dice))
 
 		# self.train_operating_point.append(operation_point)
@@ -100,7 +101,7 @@ class IntervalEvaluation(Callback):
 			self.y_val.flatten(), y_pred_val.flatten())
 
 		print(
-			"Validation Operating Point:{:.4f}, Accuracy :{:.4f}, Sensitivity:{:.4f}, Specificity: {:.4f}, Dice: {:.4f}".format(
+			"Validation Operating Point:{:.4f}, Accuracy :{:.4f}, Sensitivity:{:.4f}, Specificity: {:.4f}, Dice: {:.4f}\n".format(
 				operation_point, accuracy, sensitivity, specificity, dice))
 
 		# Can be used later for drawing plots
@@ -112,7 +113,7 @@ class IntervalEvaluation(Callback):
 		self.val_dice.append(dice)
 
 		# Save doing subplot
-		figure_path = os.path.join(self.logging_dir, self.model_name, 'figures')
+		figure_path = os.path.join(self.logging_dir, 'figures')
 		if not os.path.isdir(figure_path):
 			os.mkdir(figure_path)
 
@@ -137,18 +138,18 @@ class IntervalEvaluation(Callback):
 									"train_specificity": self.train_specificity, "train_dice": self.train_dice,
 									"val_accuracy": self.val_accuracy, "val_sensitivity": self.val_sensitivity,
 									"val_specificity": self.val_specificity, "val_dice": self.val_dice})
-		df.to_csv(os.path.join(self.logging_dir, self.model_name, 'log2.csv'), sep=',', index=False)
+		df.to_csv(os.path.join(self.logging_dir, 'log2.csv'), sep=',', index=False)
 
 		# This part is for generating prediction from intermediate epochs
-		save_at_epochs = [1, 20, 30, 40, 50, 60]
+		save_at_epochs = [15, 25, 35, 45, 55]
 
 		if (np.sum((epoch) == np.transpose(save_at_epochs)) > 0):
 
-			print('Reached Epoch Number %s and saving training set for training with shape model network...' % (
+			print('\nReached Epoch Number %s and saving intermediate epoch results...' % (
 				epoch))
 
 			# Save doing subplot
-			data_path = os.path.join(self.logging_dir, self.model_name, 'sr_unetdata')
+			data_path = os.path.join(self.logging_dir, 'sr_unetdata')
 			if not os.path.isdir(data_path):
 				os.mkdir(data_path)
 
@@ -156,7 +157,7 @@ class IntervalEvaluation(Callback):
 					 name1=y_pred_train,
 					 name2=self.y_train)
 
-			model.save(data_path + '/model_' + str(epoch))
+			self.model.save(data_path + '/model_' + str(epoch) + '.h5')
 
 			# sanity check plotting
 			data_path = os.path.join(data_path, 'figures')
@@ -203,32 +204,32 @@ class DataGenerator(keras.utils.Sequence):
         y = self.Ydata[indexes]
 
 
-        #Corruption part of the code
-        percentage_corruption = 0.30
-
-        for i in range(len(y)):
-
-            img = y[i]
-
-            #Generating
-
-
-            k1 = np.random.rand(np.shape(img)[0], np.shape(img)[1], np.shape(img)[2])
-            k2 = np.random.rand(np.shape(img)[0], np.shape(img)[1], np.shape(img)[2])
-            k3 = np.random.rand(np.shape(img)[0], np.shape(img)[1], np.shape(img)[2])
-            k4 = np.random.rand(np.shape(img)[0], np.shape(img)[1], np.shape(img)[2])
-
-            mask_indx = np.asarray(np.where(img==1))
-            mask_indx = np.transpose(mask_indx)
-            np.random.shuffle(mask_indx)
-
-            mask_indx = mask_indx[:int(np.floor(len(mask_indx)*percentage_corruption)),:]
-            mask_indx = np.transpose(mask_indx)
-
-            mask = np.zeros(np.shape(img))
-            mask[mask_indx[0], mask_indx[1], mask_indx[2]] = 1
-
-            new = ((img*mask*k1) + (img*mask*k2) + (img*mask*k3) +(img*mask*k4))/4
+        # #Corruption part of the code
+        # percentage_corruption = 0.30
+		#
+        # for i in range(len(y)):
+		#
+        #     img = y[i]
+		#
+        #     #Generating
+		#
+		#
+        #     k1 = np.random.rand(np.shape(img)[0], np.shape(img)[1], np.shape(img)[2])
+        #     k2 = np.random.rand(np.shape(img)[0], np.shape(img)[1], np.shape(img)[2])
+        #     k3 = np.random.rand(np.shape(img)[0], np.shape(img)[1], np.shape(img)[2])
+        #     k4 = np.random.rand(np.shape(img)[0], np.shape(img)[1], np.shape(img)[2])
+		#
+        #     mask_indx = np.asarray(np.where(img==1))
+        #     mask_indx = np.transpose(mask_indx)
+        #     np.random.shuffle(mask_indx)
+		#
+        #     mask_indx = mask_indx[:int(np.floor(len(mask_indx)*percentage_corruption)),:]
+        #     mask_indx = np.transpose(mask_indx)
+		#
+        #     mask = np.zeros(np.shape(img))
+        #     mask[mask_indx[0], mask_indx[1], mask_indx[2]] = 1
+		#
+        #     new = ((img*mask*k1) + (img*mask*k2) + (img*mask*k3) +(img*mask*k4))/4
 
 
 
