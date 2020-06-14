@@ -7,6 +7,7 @@
 # %%
 # Import libraries
 import os
+import time
 import matplotlib.pyplot as plt
 
 #matplotlib inline
@@ -35,11 +36,11 @@ import losses as l
 # %%
 # Name data and config types
 DATASET_NAME = "data0" # name of the npz file
-CFG_NAME = "unet_generator_corruption" # name of the architecture/configuration
+CFG_NAME = "unet_data_augment2" # name of the architecture/configuration
 
 # %%
 # Train
-batch_size = 16
+batch_size = 32
 epochs = 100000
 interval = 10 #show correct dice and log it after every ? epochs
 
@@ -75,17 +76,6 @@ train_labels = np.minimum(train_labels, 1)
 train_labels = np.expand_dims(train_labels, axis=-1)
 print(train_data.shape, train_labels.shape)
 
-# %%
-# for img, mask in zip(train_data[:3], train_labels[:3]):
-#
-#     img = np.squeeze(img, axis=-1) # change to H, W
-#     mask = np.squeeze(mask, axis=-1) # change to H, W
-#
-#
-#     fig,_ = plt.subplots(nrows=1, ncols=2, figsize=(14,12))
-#     fig.axes[0].imshow(img, cmap='gray')
-#     fig.axes[1].imshow(mask, cmap='gray')
-#     plt.show()
 
 
 
@@ -119,7 +109,7 @@ def plot_loss_accu(history):
     plt.legend(['training', 'validation'], loc='upper right')
     plt.grid(True)
     plt.savefig('{}/{}_loss.png'.format(LOG_PATH, EXPERIMENT_NAME), dpi=100)
-    plt.show()
+    #plt.show()
     
     loss = history.history['jacard'][1:]
     val_loss = history.history['val_jacard'][1:]
@@ -132,7 +122,7 @@ def plot_loss_accu(history):
     plt.legend(['training', 'validation'], loc='lower right')
     plt.grid(True)
     plt.savefig('{}/{}_jac.png'.format(LOG_PATH, EXPERIMENT_NAME), dpi=100)
-    plt.show()
+    #plt.show()
     
     loss = history.history['dice'][1:]
     val_loss = history.history['val_dice'][1:]
@@ -145,7 +135,7 @@ def plot_loss_accu(history):
     plt.legend(['training', 'validation'], loc='lower right')
     plt.grid(True)
     plt.savefig('{}/{}_jac.png'.format(LOG_PATH, EXPERIMENT_NAME), dpi=100)
-    plt.show()
+    #plt.show()
     
     
 def plot_graphs(history):
@@ -185,7 +175,7 @@ def plot_graphs(history):
     plt.legend(['Train', 'Test'], loc='upper left')
     plt.grid(True)
     plt.savefig('{}/{}_graph.png'.format(LOG_PATH, EXPERIMENT_NAME), dpi=100)
-    plt.show()
+    #plt.show()
 
 # %%
 # Build standard U-Net model
@@ -216,26 +206,28 @@ ie = classes.IntervalEvaluation(EXPERIMENT_NAME, LOG_PATH, interval, validation_
                                 training_data=(x_train, y_train))
 
 
-# model.fit(x_train, y_train,
-#                 batch_size=batch_size,
-#                 epochs=epochs,
-#                 validation_data=(x_test, y_test),
-#                 callbacks=[checkpointer, early_stopping, reduce_lr, csv_logger],
-#                 shuffle=True,
-#                 verbose = 2)
+
 
 #generators
-training_generator = classes.DataGenerator(x_train, y_train, batch_size=batch_size, shuffle=True)
-validation_generator = classes.DataGenerator(x_test, y_test, batch_size=batch_size, shuffle=True)
+training_generator = classes.DataGenerator_Augment(x_train, y_train, batch_size=batch_size, shuffle=True)
+validation_generator = classes.DataGenerator_Augment(x_test, y_test, batch_size=batch_size, shuffle=True)
+
+
+start_time = time.time()
 
 
 # Train model on dataset
 model.fit_generator(generator=training_generator,
-                    validation_data=validation_generator,callbacks=[ie, checkpointer, early_stopping, reduce_lr, csv_logger],
+                    validation_data=validation_generator,callbacks=[ie, checkpointer, reduce_lr, csv_logger, early_stopping],
                 shuffle=True,
-                verbose = 2,epochs = epochs, steps_per_epoch=len(x_train)//batch_size)
+                verbose = 2,epochs = epochs, steps_per_epoch= (len(x_train)*2) // batch_size)
 
 
+
+
+
+end_time = time.time()
+print("--- Time taken to train : %s hours ---" % ((end_time - start_time)//3600))
 
 
 
@@ -277,40 +269,40 @@ np.savez('{}/{}_{}_mask_pred.npz'.format(LOG_PATH, CFG_NAME, DATASET_NAME),
 # %%
 # binary segmentation
 
-try:
-    os.makedirs('{}/results/'.format(LOG_PATH, EXPERIMENT_NAME))
-except:
-    pass 
+# try:
+#     os.makedirs('{}/results/'.format(LOG_PATH, EXPERIMENT_NAME))
+# except:
+#     pass 
 
-for i in range(5):
+# for i in range(5):
     
-    plt.figure(figsize=(20,10))
-    plt.subplot(1,3,1)
-    if len(x_test[i].shape) >= 2:
-        plt.grid(False)
-        plt.imshow(x_test[i].squeeze(), cmap='gray') # 1-channel image
-    else:
-        plt.grid(False)
-        plt.imshow(x_test[i]) # 3-channel
+#     plt.figure(figsize=(20,10))
+#     plt.subplot(1,3,1)
+#     if len(x_test[i].shape) >= 2:
+#         plt.grid(False)
+#         plt.imshow(x_test[i].squeeze(), cmap='gray') # 1-channel image
+#     else:
+#         plt.grid(False)
+#         plt.imshow(x_test[i]) # 3-channel
         
-    plt.title('Input')
-    plt.subplot(1,3,2)
-    plt.grid(False)
-    plt.imshow(y_test[i].reshape(y_test[i].shape[0],y_test[i].shape[1]), cmap='magma') #cmap='magma'
-    plt.title('Ground Truth')
-    plt.subplot(1,3,3)
-    plt.grid(False)
-    plt.imshow(yp[i].reshape(yp[i].shape[0],yp[i].shape[1]),cmap='magma')
-    plt.title('Prediction')
+#     plt.title('Input')
+#     plt.subplot(1,3,2)
+#     plt.grid(False)
+#     plt.imshow(y_test[i].reshape(y_test[i].shape[0],y_test[i].shape[1]), cmap='magma') #cmap='magma'
+#     plt.title('Ground Truth')
+#     plt.subplot(1,3,3)
+#     plt.grid(False)
+#     plt.imshow(yp[i].reshape(yp[i].shape[0],yp[i].shape[1]),cmap='magma')
+#     plt.title('Prediction')
     
-    # Calc jaccard index of predictions
-    intersection = yp[i].ravel() * y_test[i].ravel()
-    union = yp[i].ravel() + y_test[i].ravel() - intersection
-    jacard = (np.sum(intersection)/np.sum(union))  
+#     # Calc jaccard index of predictions
+#     intersection = yp[i].ravel() * y_test[i].ravel()
+#     union = yp[i].ravel() + y_test[i].ravel() - intersection
+#     jacard = (np.sum(intersection)/np.sum(union))  
     
-    plt.suptitle('Jacard Index: '+ str(np.sum(intersection)) +'/'+ str(np.sum(union)) +' = '+str(jacard))
-    plt.savefig('{}/results/'.format(LOG_PATH, EXPERIMENT_NAME)+str(i)+'.png',format='png')
-    plt.show()
-    plt.close()
+#     plt.suptitle('Jacard Index: '+ str(np.sum(intersection)) +'/'+ str(np.sum(union)) +' = '+str(jacard))
+#     plt.savefig('{}/results/'.format(LOG_PATH, EXPERIMENT_NAME)+str(i)+'.png',format='png')
+#     plt.show()
+#     plt.close()
 
 # %%
