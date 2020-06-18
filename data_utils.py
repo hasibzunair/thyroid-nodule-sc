@@ -22,8 +22,8 @@ def saveCorruptionResults(figure_path, epoch, X, Y, filename, num = 5):
 
     randomize = np.arange(len(X))
     np.random.shuffle(randomize)
-    X = X[randomize]
-    Y = Y[randomize]
+    X = X[randomize] #pred
+    Y = Y[randomize] #train
     #Plotting the first *num* cases
 
     X = X[:num]
@@ -35,8 +35,8 @@ def saveCorruptionResults(figure_path, epoch, X, Y, filename, num = 5):
         X_temp = X[j]
         Y_temp = Y[j]
 
-        operation_point, _, _, accuracy, specificity, sensitivity, dice = get_operating_points(X_temp.flatten(),
-                                                                                               Y_temp.flatten())
+        operation_point, _, _, accuracy, specificity, sensitivity, dice = get_operating_points(Y_temp.flatten(),
+                                                                                               X_temp.flatten())
 
         rows = 1
         cols = 4  # how many examples to be plotted
@@ -98,14 +98,14 @@ def saveResultasPlot(figure_path, epoch, X, Y, Y_pred, filename, num = 5):
 
     randomize = np.arange(len(X))
     np.random.shuffle(randomize)
-    X = X[randomize]
-    Y = Y[randomize]
-    Y_pred = Y_pred[randomize]
+    X = X[randomize[:num]]
+    Y = Y[randomize[:num]]
+    Y_pred = Y_pred[randomize[:num]]
     #Plotting the first *num* cases
 
-    X = X[:num]
-    Y = Y[:num]
-    Y_pred = Y_pred[:num]
+    # X = X[:num]
+    # Y = Y[:num]
+    # Y_pred = Y_pred[:num]
 
 
 

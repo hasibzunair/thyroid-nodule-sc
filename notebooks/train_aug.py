@@ -36,13 +36,9 @@ import losses as l
 # %%
 # Name data and config types
 DATASET_NAME = "data0" # name of the npz file
-CFG_NAME = "unet_data_augment2" # name of the architecture/configuration
+SRUNET_DATA = "data0_unet_data_augment2"
 
-# %%
-# Train
-batch_size = 32
-epochs = 100000
-interval = 10 #show correct dice and log it after every ? epochs
+CFG_NAME = "SRNET" # name of the architecture/configuration
 
 
 
@@ -51,6 +47,17 @@ ROOT_DIR = os.path.abspath("../")
 DATASET_FOLDER = "npy_data"
 DATASET_PATH = os.path.join(ROOT_DIR, "datasets", DATASET_FOLDER)
 EXPERIMENT_NAME = "{}_{}".format(DATASET_NAME, CFG_NAME)
+
+
+# %%
+# Train
+batch_size = 32
+epochs = 100000
+interval = 10 #show correct dice and log it after every ? epochs
+
+SRUNET_DATA_PATH = os.path.join(ROOT_DIR, "logs", SRUNET_DATA, "sr_unetdata")
+epoch_list = [15,25,35,45]
+unet_or_srunet = 1#0 for Unet, 1 for SRNET
 
 
 
@@ -67,30 +74,56 @@ print(os.listdir(DATASET_PATH))
 
 
 # Load the dataset
-data = np.load(DATASET_PATH + '/{}.npz'.format(DATASET_NAME))
-train_data = data['name1']
-train_labels = data['name2']
+if unet_or_srunet == 0:
+    data = np.load(DATASET_PATH + '/{}.npz'.format(DATASET_NAME))
+    train_data = data['name1']
+    train_labels = data['name2']
 
-train_data = np.expand_dims(train_data, axis=-1)
-train_labels = np.minimum(train_labels, 1)
-train_labels = np.expand_dims(train_labels, axis=-1)
-print(train_data.shape, train_labels.shape)
+    train_data = np.expand_dims(train_data, axis=-1)
+    train_labels = np.minimum(train_labels, 1)
+    train_labels = np.expand_dims(train_labels, axis=-1)
+    print(train_data.shape, train_labels.shape)
+
+    # %%
+    """
+    ## Split data and train
+    """
+
+    # %%
+    # Split into training and validation sets
+    x_train = train_data[:2915]
+    x_test = train_data[2915:]
+    y_train = train_labels[:2915]
+    y_test = train_labels[2915:]
+    print("Train and validate on -------> ", x_train.shape, x_test.shape, y_train.shape, y_test.shape)
 
 
+else: #for SRNET
+    for indx in range(len(epoch_list)):
+
+        data = np.load(SRUNET_DATA_PATH + '/train_pred_%s.npz'%(epoch_list[indx]))
+
+        train_data = (data['name1'])
+        train_labels = (data['name2'])
+
+        split = 2332 #80% of the data as training and rest as validation. This is different than unet because we are only using training set for SRUNET
+
+        if indx == 0:
+            x_train = train_data[:split] #Splitting is done per epoch output to make sure cases from validation are not seen during training
+            x_test = train_data[split:]
+            y_train = train_labels[:split]
+            y_test = train_labels[split:]
+        else:
+            x_train = np.concatenate((x_train, train_data[:split]))
+            x_test = np.concatenate((x_test, train_data[split:]))
+
+            y_train = np.concatenate((y_train, train_labels[:split]))
+            y_test = np.concatenate((y_test, train_labels[split:]))
+
+        del data, train_data, train_labels
 
 
-# %%
-"""
-## Split data and train
-"""
-
-# %%
-# Split into training and validation sets
-x_train = train_data[:2915]
-x_test = train_data[2915:]
-y_train = train_labels[:2915]
-y_test = train_labels[2915:]
-print("Train and validate on -------> ", x_train.shape, x_test.shape, y_train.shape, y_test.shape)
+    print("Train and validate on -------> ", x_train.shape, x_test.shape, y_train.shape, y_test.shape)
 
 
 
@@ -179,8 +212,10 @@ def plot_graphs(history):
 
 # %%
 # Build standard U-Net model
-model = M.unet(input_size = (train_data.shape[1], train_data.shape[2], train_data.shape[-1]))
-
+if unet_or_srunet == 0:
+    model = M.unet(input_size = (train_data.shape[1], train_data.shape[2], train_data.shape[-1]))
+else:
+    model = M.SRUNET(input_size = (x_train.shape[1], x_train.shape[2], x_train.shape[-1]))
 # Build U-Net model with custom encoder
 #backbone_name = 'vgg16'
 #encoder_weights = None
@@ -202,15 +237,15 @@ reduce_lr = ReduceLROnPlateau(monitor='val_jacard', factor=0.1, patience=5, verb
 early_stopping = EarlyStopping(monitor='val_jacard', min_delta=0, verbose=1, patience=8, mode='max', restore_best_weights=True)
 csv_logger = CSVLogger('{}/{}_training.csv'.format(LOG_PATH, EXPERIMENT_NAME))
 
-ie = classes.IntervalEvaluation(EXPERIMENT_NAME, LOG_PATH, interval, validation_data=(x_test, y_test),
+ie = classes.IntervalEvaluation(EXPERIMENT_NAME, LOG_PATH, interval,unet_or_srunet, validation_data=(x_test, y_test),
                                 training_data=(x_train, y_train))
 
 
 
 
 #generators
-training_generator = classes.DataGenerator_Augment(x_train, y_train, batch_size=batch_size, shuffle=True)
-validation_generator = classes.DataGenerator_Augment(x_test, y_test, batch_size=batch_size, shuffle=True)
+training_generator = classes.DataGenerator(x_train, y_train, batch_size=batch_size, shuffle=True)
+validation_generator = classes.DataGenerator(x_test, y_test, batch_size=batch_size, shuffle=True)
 
 
 start_time = time.time()
