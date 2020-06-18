@@ -42,11 +42,12 @@ import logging as l
 
 
 class IntervalEvaluation(Callback):
-	def __init__(self, model_name, logging_dir, interval, validation_data=(), training_data=()):
+	def __init__(self, model_name, logging_dir, interval, unet_or_srunet,validation_data=(), training_data=()):
 		super(Callback, self).__init__()
 		self.interval = interval
 		self.model_name = model_name
 		self.logging_dir = logging_dir
+		self.unet_or_srunet = unet_or_srunet
 
 		self.X_val, self.y_val = validation_data
 		self.X_train, self.y_train = training_data
@@ -85,89 +86,91 @@ class IntervalEvaluation(Callback):
 		data_utils.saveResultasPlot(figure_path, epoch, self.X_train, self.y_train, y_pred_train, 'Training', 5)
 		data_utils.saveResultasPlot(figure_path, epoch, self.X_val, self.y_val, y_pred_val, 'Validation', 5)
 
-		if epoch % self.interval == 0:
-			# For finding AUC
-			# fpr, tpr, _ = roc_curve(self.y_train.flatten()>0.5, y_pred_train.flatten())
-			# roc_auc_train = auc(fpr, tpr)
-			#
-			# fpr, tpr, _ = roc_curve(self.y_val.flatten()>0.5, y_pred_val.flatten())
-			# roc_auc_val = auc(fpr, tpr)
+		if self.unet_or_srunet == 0:
+			if epoch % self.interval == 0:
+				# For finding AUC
+				# fpr, tpr, _ = roc_curve(self.y_train.flatten()>0.5, y_pred_train.flatten())
+				# roc_auc_train = auc(fpr, tpr)
+				#
+				# fpr, tpr, _ = roc_curve(self.y_val.flatten()>0.5, y_pred_val.flatten())
+				# roc_auc_val = auc(fpr, tpr)
 
-			operation_point, _, _, accuracy, specificity, sensitivity, dice = data_utils.get_operating_points(
-				self.y_train.flatten(), y_pred_train.flatten())
+				operation_point, _, _, accuracy, specificity, sensitivity, dice = data_utils.get_operating_points(
+					self.y_train.flatten(), y_pred_train.flatten())
 
-			print(
-				"\nTraining Operating Point:{:.4f}, Accuracy :{:.4f}, Sensitivity:{:.4f}, Specificity: {:.4f}, Dice: {:.4f}".format(
-					operation_point, accuracy, sensitivity, specificity, dice))
+				print(
+					"\nTraining Operating Point:{:.4f}, Accuracy :{:.4f}, Sensitivity:{:.4f}, Specificity: {:.4f}, Dice: {:.4f}".format(
+						operation_point, accuracy, sensitivity, specificity, dice))
 
-			# self.train_operating_point.append(operation_point)
-			# self.train_aucs.append(roc_auc_train)
-			self.epochz.append(epoch)
+				# self.train_operating_point.append(operation_point)
+				# self.train_aucs.append(roc_auc_train)
+				self.epochz.append(epoch)
 
-			self.train_accuracy.append(accuracy)
-			self.train_sensitivity.append(sensitivity)
-			self.train_specificity.append(specificity)
-			self.train_dice.append(dice)
+				self.train_accuracy.append(accuracy)
+				self.train_sensitivity.append(sensitivity)
+				self.train_specificity.append(specificity)
+				self.train_dice.append(dice)
 
-			operation_point, _, _, accuracy, specificity, sensitivity, dice = data_utils.use_operating_points(
-				operation_point,
-				self.y_val.flatten(), y_pred_val.flatten())
+				operation_point, _, _, accuracy, specificity, sensitivity, dice = data_utils.use_operating_points(
+					operation_point,
+					self.y_val.flatten(), y_pred_val.flatten())
 
-			print(
-				"Validation Operating Point:{:.4f}, Accuracy :{:.4f}, Sensitivity:{:.4f}, Specificity: {:.4f}, Dice: {:.4f}\n".format(
-					operation_point, accuracy, sensitivity, specificity, dice))
+				print(
+					"Validation Operating Point:{:.4f}, Accuracy :{:.4f}, Sensitivity:{:.4f}, Specificity: {:.4f}, Dice: {:.4f}\n".format(
+						operation_point, accuracy, sensitivity, specificity, dice))
 
-			# Can be used later for drawing plots
-			# self.val_operating_point.append(operation_point)
-			# self.val_aucs.append(roc_auc_val)
-			self.val_accuracy.append(accuracy)
-			self.val_sensitivity.append(sensitivity)
-			self.val_specificity.append(specificity)
-			self.val_dice.append(dice)
+				# Can be used later for drawing plots
+				# self.val_operating_point.append(operation_point)
+				# self.val_aucs.append(roc_auc_val)
+				self.val_accuracy.append(accuracy)
+				self.val_sensitivity.append(sensitivity)
+				self.val_specificity.append(specificity)
+				self.val_dice.append(dice)
 
-			# np.savez(os.path.join(self.logging_dir, self.model_name, 'val_metrics'),
-			#          name1=self.val_accuracy,
-			#          name2=self.val_sensitivity,
-			#          name3=self.val_specificity, name4=self.val_dice)
-			#
-			# np.savez(os.path.join(self.logging_dir, self.model_name,'train_metrics'),
-			#          name1=self.train_accuracy,
-			#          name2=self.train_sensitivity,
-			#          name3=self.train_specificity, name4=self.train_dice)
+				# np.savez(os.path.join(self.logging_dir, self.model_name, 'val_metrics'),
+				#          name1=self.val_accuracy,
+				#          name2=self.val_sensitivity,
+				#          name3=self.val_specificity, name4=self.val_dice)
+				#
+				# np.savez(os.path.join(self.logging_dir, self.model_name,'train_metrics'),
+				#          name1=self.train_accuracy,
+				#          name2=self.train_sensitivity,
+				#          name3=self.train_specificity, name4=self.train_dice)
 
-			# save as csv file
-			df = pandas.DataFrame(data={"epoch": self.epochz, "train_accuracy": self.train_accuracy,
-										"train_sensitivity": self.train_sensitivity,
-										"train_specificity": self.train_specificity, "train_dice": self.train_dice,
-										"val_accuracy": self.val_accuracy, "val_sensitivity": self.val_sensitivity,
-										"val_specificity": self.val_specificity, "val_dice": self.val_dice})
-			df.to_csv(os.path.join(self.logging_dir, 'log2.csv'), sep=',', index=False)
+				# save as csv file
+				df = pandas.DataFrame(data={"epoch": self.epochz, "train_accuracy": self.train_accuracy,
+											"train_sensitivity": self.train_sensitivity,
+											"train_specificity": self.train_specificity, "train_dice": self.train_dice,
+											"val_accuracy": self.val_accuracy, "val_sensitivity": self.val_sensitivity,
+											"val_specificity": self.val_specificity, "val_dice": self.val_dice})
+				df.to_csv(os.path.join(self.logging_dir, 'log2.csv'), sep=',', index=False)
 
-		# This part is for generating prediction from intermediate epochs
-		save_at_epochs = [15, 25, 35, 45, 55]
 
-		if (np.sum((epoch) == np.transpose(save_at_epochs)) > 0):
+			# This part is for generating prediction from intermediate epochs
+			save_at_epochs = [1,2,15, 25, 35, 45, 55]
 
-			print('\nReached Epoch Number %s and saving intermediate epoch results...' % (
-				epoch))
+			if (np.sum((epoch) == np.transpose(save_at_epochs)) > 0):
 
-			# Save doing subplot
-			data_path = os.path.join(self.logging_dir, 'sr_unetdata')
-			if not os.path.isdir(data_path):
-				os.mkdir(data_path)
+				print('\nReached Epoch Number %s and saving intermediate epoch results...' % (
+					epoch))
 
-			np.savez(os.path.join(data_path, 'train_pred_' + str(epoch)),
-					 name1=y_pred_train,
-					 name2=self.y_train)
+				# Save doing subplot
+				data_path = os.path.join(self.logging_dir, 'sr_unetdata')
+				if not os.path.isdir(data_path):
+					os.mkdir(data_path)
 
-			self.model.save(data_path + '/model_' + str(epoch) + '.h5')
+				np.savez(os.path.join(data_path, 'train_pred_' + str(epoch)),
+						 name1=y_pred_train,
+						 name2=self.y_train)
 
-			# sanity check plotting
-			data_path = os.path.join(data_path, 'figures')
-			if not os.path.isdir(data_path):
-				os.mkdir(data_path)
+				self.model.save(data_path + '/model_' + str(epoch) + '.h5')
 
-			data_utils.saveCorruptionResults(data_path, epoch, y_pred_train, self.y_train, 'Train', 5)
+				# sanity check plotting
+				data_path = os.path.join(data_path, 'figures')
+				if not os.path.isdir(data_path):
+					os.mkdir(data_path)
+
+				data_utils.saveCorruptionResults(data_path, epoch, y_pred_train, self.y_train, 'Train', 5)
 
 
 
