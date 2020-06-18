@@ -36,7 +36,7 @@ import losses as l
 # %%
 # Name data and config types
 DATASET_NAME = "data0" # name of the npz file
-SRUNET_DATA = "data0_unet_data_augment2"
+SRUNET_DATA = "data0_unet_data_augment"
 
 CFG_NAME = "SRNET" # name of the architecture/configuration
 
@@ -57,7 +57,7 @@ interval = 10 #show correct dice and log it after every ? epochs
 
 SRUNET_DATA_PATH = os.path.join(ROOT_DIR, "logs", SRUNET_DATA, "sr_unetdata")
 epoch_list = [15,25,35,45]
-unet_or_srunet = 1#0 for Unet, 1 for SRNET
+unet_or_srunet = 0 #0 for Unet, 1 for SRNET
 
 
 
@@ -213,8 +213,10 @@ def plot_graphs(history):
 # %%
 # Build standard U-Net model
 if unet_or_srunet == 0:
+    print("Segmentation model")
     model = M.unet(input_size = (train_data.shape[1], train_data.shape[2], train_data.shape[-1]))
 else:
+    print("Shape regularization model")
     model = M.SRUNET(input_size = (x_train.shape[1], x_train.shape[2], x_train.shape[-1]))
 # Build U-Net model with custom encoder
 #backbone_name = 'vgg16'
@@ -244,8 +246,8 @@ ie = classes.IntervalEvaluation(EXPERIMENT_NAME, LOG_PATH, interval,unet_or_srun
 
 
 #generators
-training_generator = classes.DataGenerator(x_train, y_train, batch_size=batch_size, shuffle=True)
-validation_generator = classes.DataGenerator(x_test, y_test, batch_size=batch_size, shuffle=True)
+training_generator = classes.DataGenerator_Augment(x_train, y_train, batch_size=batch_size, shuffle=True)
+validation_generator = classes.DataGenerator_Augment(x_test, y_test, batch_size=batch_size, shuffle=True)
 
 
 start_time = time.time()
