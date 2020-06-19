@@ -36,16 +36,17 @@ import losses as l
 # %%
 # Name data and config types
 DATASET_NAME = "data0" # name of the npz file
-SRUNET_DATA = "data0_unet_data_augment"
-
-CFG_NAME = "SRNET" # name of the architecture/configuration
-
+SRUNET_DATA = "data0_unet_data_augment" # SRUNET data path
+CFG_NAME = "unet_data_augment" # name of the architecture/configuration for segmentation model
 
 
+epoch_list = [15,25,35,45]
+unet_or_srunet = 0 #0 for Unet, 1 for SRNET
 
 ROOT_DIR = os.path.abspath("../")
 DATASET_FOLDER = "npy_data"
 DATASET_PATH = os.path.join(ROOT_DIR, "datasets", DATASET_FOLDER)
+SRUNET_DATA_PATH = os.path.join(ROOT_DIR, "logs", SRUNET_DATA, "sr_unetdata")
 EXPERIMENT_NAME = "{}_{}".format(DATASET_NAME, CFG_NAME)
 
 
@@ -54,12 +55,6 @@ EXPERIMENT_NAME = "{}_{}".format(DATASET_NAME, CFG_NAME)
 batch_size = 32
 epochs = 100000
 interval = 10 #show correct dice and log it after every ? epochs
-
-SRUNET_DATA_PATH = os.path.join(ROOT_DIR, "logs", SRUNET_DATA, "sr_unetdata")
-epoch_list = [15,25,35,45]
-unet_or_srunet = 0 #0 for Unet, 1 for SRNET
-
-
 
 if not os.path.exists(os.path.join(ROOT_DIR, "logs")):
     os.mkdir(os.path.join(ROOT_DIR, "logs"))

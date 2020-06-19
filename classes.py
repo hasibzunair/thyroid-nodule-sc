@@ -147,7 +147,7 @@ class IntervalEvaluation(Callback):
 
 
 			# This part is for generating prediction from intermediate epochs
-			save_at_epochs = [1,2,15, 25, 35, 45, 55] #[2,4,6,8,10,12,14,16,18,20]
+			save_at_epochs = [2,4,6,8,10,12,14,16,18,20]
 
 
 			if (np.sum((epoch) == np.transpose(save_at_epochs)) > 0):
