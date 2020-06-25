@@ -37,22 +37,22 @@ import losses as l
 # Name data and config types
 DATASET_NAME = "data0" # name of the npz file
 SRUNET_DATA = "data0_unet_data_augment" # SRUNET data path
-CFG_NAME = "unet_data_augment" # name of the architecture/configuration for segmentation model
+CFG_NAME = "data0_SRNET_with_augmented_data" # name of the architecture/configuration for segmentation model
 
 
-epoch_list = [15,25,35,45]
-unet_or_srunet = 0 #0 for Unet, 1 for SRNET
+epoch_list = [6,10,14,22,26]
+unet_or_srunet = 1 #0 for Unet, 1 for SRNET
 
 ROOT_DIR = os.path.abspath("../")
 DATASET_FOLDER = "npy_data"
 DATASET_PATH = os.path.join(ROOT_DIR, "datasets", DATASET_FOLDER)
 SRUNET_DATA_PATH = os.path.join(ROOT_DIR, "logs", SRUNET_DATA, "sr_unetdata")
-EXPERIMENT_NAME = "{}_{}".format(DATASET_NAME, CFG_NAME)
+EXPERIMENT_NAME = "{}_{}_{}".format(DATASET_NAME, CFG_NAME, epoch_list)
 
 
 # %%
 # Train
-batch_size = 32
+batch_size = 16
 epochs = 100000
 interval = 10 #show correct dice and log it after every ? epochs
 
