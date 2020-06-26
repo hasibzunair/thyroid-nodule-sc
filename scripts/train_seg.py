@@ -15,11 +15,14 @@ import numpy as np
 import time
 from tqdm import tqdm
 from keras.callbacks import ModelCheckpoint, CSVLogger, EarlyStopping, ReduceLROnPlateau
+from keras.layers import Input
+from keras.models import Model
 from keras.utils import generic_utils
 from keras import callbacks
 from keras import backend as K
 from sklearn.model_selection import train_test_split
 from sklearn.model_selection import StratifiedKFold
+from tensorflow.keras.models import load_model
 
 
 # Go back one step to read module
@@ -30,6 +33,7 @@ import data_utils
 import classes
 import models as M
 import losses as l
+import metrics
 
 
 
@@ -37,24 +41,31 @@ import losses as l
 # Name data and config types
 DATASET_NAME = "data0" # name of the npz file
 SRUNET_DATA = "data0_unet_data_augment" # SRUNET data path
-CFG_NAME = "SRNET_with_augmented_data" # name of the architecture/configuration for segmentation model
-
+CFG_NAME = "Cascaded_network" # name of the architecture/configuration for segmentation model
+TRAINED_SRNET = "data0_data0_SRNET_with_augmented_data_[6, 10, 12, 16, 20]"
 
 epoch_list = [2,4,6,8]
-unet_or_srunet = 1 #0 for Unet, 1 for SRNET
+unet_or_srunet = 2 #0 for Unet, 1 for SRNET, #2 cascaded
 
 ROOT_DIR = os.path.abspath("../")
 DATASET_FOLDER = "npy_data"
 DATASET_PATH = os.path.join(ROOT_DIR, "datasets", DATASET_FOLDER)
 SRUNET_DATA_PATH = os.path.join(ROOT_DIR, "logs", SRUNET_DATA, "sr_unetdata")
-EXPERIMENT_NAME = "{}_{}_{}".format(DATASET_NAME, CFG_NAME, epoch_list)
 
+if unet_or_srunet == 1:
+    EXPERIMENT_NAME = "{}_{}_{}".format(DATASET_NAME, CFG_NAME, epoch_list)
+else:
+    EXPERIMENT_NAME = "{}_{}".format(DATASET_NAME, CFG_NAME)
+
+TRAINED_SRUNET_PATH = os.path.join(ROOT_DIR, "logs", TRAINED_SRNET)
 
 # %%
 # Train
 batch_size = 16
 epochs = 100000
 interval = 10 #show correct dice and log it after every ? epochs
+optim = 'adam'
+loss_func = 'binary_crossentropy'
 
 if not os.path.exists(os.path.join(ROOT_DIR, "logs")):
     os.mkdir(os.path.join(ROOT_DIR, "logs"))
@@ -69,7 +80,7 @@ print(os.listdir(DATASET_PATH))
 
 
 # Load the dataset
-if unet_or_srunet == 0:
+if (unet_or_srunet == 0 or unet_or_srunet ==2):
     data = np.load(DATASET_PATH + '/{}.npz'.format(DATASET_NAME))
     train_data = data['name1']
     train_labels = data['name2']
@@ -90,7 +101,6 @@ if unet_or_srunet == 0:
     x_test = train_data[2915:]
     y_train = train_labels[:2915]
     y_test = train_labels[2915:]
-    print("Train and validate on -------> ", x_train.shape, x_test.shape, y_train.shape, y_test.shape)
 
 
 else: #for SRNET
@@ -117,8 +127,12 @@ else: #for SRNET
 
         del data, train_data, train_labels
 
+print("Train and validate on -------> ", x_train.shape, x_test.shape, y_train.shape, y_test.shape)
 
-    print("Train and validate on -------> ", x_train.shape, x_test.shape, y_train.shape, y_test.shape)
+print("\n\nX Train- max: %s, min: %s" %(np.max(x_train), np.min(x_train)))
+print("Y Train- max: %s, min: %s" % (np.max(y_train), np.min(y_train)))
+print("X Val- max: %s, min: %s" % (np.max(x_test), np.min(x_test)))
+print("Y Val- max: %s, min: %s" % (np.max(y_test), np.min(y_test)))
 
 
 
@@ -210,9 +224,33 @@ def plot_graphs(history):
 if unet_or_srunet == 0:
     print("Segmentation model")
     model = M.unet(input_size = (train_data.shape[1], train_data.shape[2], train_data.shape[-1]))
-else:
+
+elif unet_or_srunet == 1:
     print("Shape regularization model")
     model = M.SRUNET(input_size = (x_train.shape[1], x_train.shape[2], x_train.shape[-1]))
+
+
+elif unet_or_srunet == 2:
+    print("Cascaded Network")
+
+    unet_main = M.unet(input_size=(train_data.shape[1], train_data.shape[2], train_data.shape[-1]))
+
+    srunet = M.SRUNET(input_size = (x_train.shape[1], x_train.shape[2], x_train.shape[-1]))
+    srunet.load_weights(TRAINED_SRUNET_PATH + '/' + TRAINED_SRNET + '.h5')
+
+    #freezing pretrained SRUNET
+    srunet.trainable = False
+
+    # Defining Cascaded Architechture
+    inputs = Input(shape=(train_data.shape[1], train_data.shape[2], train_data.shape[-1]))
+    unet_output = unet_main(inputs)
+    output = srunet(unet_output)
+    model = Model(inputs=[inputs], outputs=[output])
+
+# Compiling
+model.compile(optimizer=optim, loss=loss_func, metrics=[metrics.jacard, metrics.dice_coef])
+
+
 # Build U-Net model with custom encoder
 #backbone_name = 'vgg16'
 #encoder_weights = None
@@ -269,7 +307,7 @@ plot_graphs(model.history)
 
 # %%
 # Evaluate trained model using Jaccard and Dice metric
-from tensorflow.keras.models import load_model
+
 model = None
 model = load_model(weights_path, compile=False)
 yp = model.predict(x=x_test, batch_size=16, verbose=1)

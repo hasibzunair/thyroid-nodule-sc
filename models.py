@@ -59,13 +59,6 @@ def unet(input_size = (256,256,1)):
 
     model = Model(inputs=[inputs], outputs=[conv10])
 
-    # Compile model with optim and loss
-    optim = 'adam' 
-    
-    # If bin seg, use bce loss
-    loss_func = 'binary_crossentropy'  
-    
-    model.compile(optimizer = optim, loss = loss_func, metrics = [M.jacard, M.dice_coef])
 
     return model
 
@@ -115,14 +108,6 @@ def SRUNET(input_size=(256, 256, 1)):
     conv10 = Conv2D(1, (1, 1), activation='sigmoid')(conv9)
 
     model = Model(inputs=[inputs], outputs=[conv10])
-
-    # Compile model with optim and loss
-    optim = 'adam'
-
-    # If bin seg, use bce loss
-    loss_func = 'binary_crossentropy'
-
-    model.compile(optimizer=optim, loss=loss_func, metrics=[M.jacard, M.dice_coef])
 
     return model
 

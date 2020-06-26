@@ -86,7 +86,7 @@ class IntervalEvaluation(Callback):
 		data_utils.saveResultasPlot(figure_path, epoch, self.X_train, self.y_train, y_pred_train, 'Training', 5)
 		data_utils.saveResultasPlot(figure_path, epoch, self.X_val, self.y_val, y_pred_val, 'Validation', 5)
 
-		if self.unet_or_srunet == 0:
+		if (self.unet_or_srunet == 0 or self.unet_or_srunet==2):
 			if epoch % self.interval == 0:
 				# For finding AUC
 				# fpr, tpr, _ = roc_curve(self.y_train.flatten()>0.5, y_pred_train.flatten())
