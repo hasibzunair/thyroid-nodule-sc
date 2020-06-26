@@ -65,6 +65,11 @@ train_data = np.expand_dims(train_data, axis=-1)
 print(train_data.shape, train_labels.shape)
 
 
+# Normalize data to [0-1]
+train_data = train_data.astype('float32')
+train_data /= 255
+
+
 # Split into training and validation sets
 x_train = train_data[:2915]
 x_test = train_data[2915:]

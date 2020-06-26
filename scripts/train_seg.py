@@ -37,10 +37,10 @@ import losses as l
 # Name data and config types
 DATASET_NAME = "data0" # name of the npz file
 SRUNET_DATA = "data0_unet_data_augment" # SRUNET data path
-CFG_NAME = "data0_SRNET_with_augmented_data" # name of the architecture/configuration for segmentation model
+CFG_NAME = "SRNET_with_augmented_data" # name of the architecture/configuration for segmentation model
 
 
-epoch_list = [6,10,14,22,26]
+epoch_list = [2,4,6,8]
 unet_or_srunet = 1 #0 for Unet, 1 for SRNET
 
 ROOT_DIR = os.path.abspath("../")
