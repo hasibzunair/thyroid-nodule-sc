@@ -171,7 +171,7 @@ elif unet_or_srunet == 2:
 
     optim = 'adam'
     loss_func = ['binary_crossentropy', 'binary_crossentropy']
-    loss_weights = [1, 1E1]
+    loss_weights = [1E1, 1]
 
     model.compile(optimizer=optim, loss=loss_func, loss_weights = loss_weights, metrics=[metrics.jacard, metrics.dice_coef])
 
