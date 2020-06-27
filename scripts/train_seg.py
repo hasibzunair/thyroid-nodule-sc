@@ -63,7 +63,7 @@ TRAINED_SRUNET_PATH = os.path.join(ROOT_DIR, "logs", TRAINED_SRNET)
 # Train
 batch_size = 16
 epochs = 100000
-interval = 10 #show correct dice and log it after every ? epochs
+interval = 1 #show correct dice and log it after every ? epochs
 optim = 'adam'
 loss_func = 'binary_crossentropy'
 
@@ -103,7 +103,7 @@ if (unet_or_srunet == 0 or unet_or_srunet ==2):
     y_test = train_labels[2915:]
 
 
-else: #for SRNET
+elif unet_or_srunet == 1: #for SRNET
     for indx in range(len(epoch_list)):
 
         data = np.load(SRUNET_DATA_PATH + '/train_pred_%s.npz'%(epoch_list[indx]))
@@ -136,98 +136,20 @@ print("Y Val- max: %s, min: %s" % (np.max(y_test), np.min(y_test)))
 
 
 
-
-# %%
-# Plot and save accuravy loss graphs individually
-def plot_loss_accu(history):
-    loss = history.history['loss'][1:]
-    val_loss = history.history['val_loss'][1:]
-    epochs = range(len(loss))
-    plt.plot(epochs, loss, 'g')
-    plt.plot(epochs, val_loss, 'y')
-    plt.title('Training and validation loss')
-    plt.ylabel('Loss %')
-    plt.xlabel('Epoch')
-    plt.legend(['training', 'validation'], loc='upper right')
-    plt.grid(True)
-    plt.savefig('{}/{}_loss.png'.format(LOG_PATH, EXPERIMENT_NAME), dpi=100)
-    #plt.show()
-    
-    loss = history.history['jacard'][1:]
-    val_loss = history.history['val_jacard'][1:]
-    epochs = range(len(loss))
-    plt.plot(epochs, loss, 'r')
-    plt.plot(epochs, val_loss, 'b')
-    plt.title('Training and validation jaccard index')
-    plt.ylabel('Jaccard Index %')
-    #plt.xlabel('Epoch')
-    plt.legend(['training', 'validation'], loc='lower right')
-    plt.grid(True)
-    plt.savefig('{}/{}_jac.png'.format(LOG_PATH, EXPERIMENT_NAME), dpi=100)
-    #plt.show()
-    
-    loss = history.history['dice'][1:]
-    val_loss = history.history['val_dice'][1:]
-    epochs = range(len(loss))
-    plt.plot(epochs, loss, 'r')
-    plt.plot(epochs, val_loss, 'b')
-    plt.title('Training and validation dice')
-    plt.ylabel('Dice Score %')
-    #plt.xlabel('Epoch')
-    plt.legend(['training', 'validation'], loc='lower right')
-    plt.grid(True)
-    plt.savefig('{}/{}_jac.png'.format(LOG_PATH, EXPERIMENT_NAME), dpi=100)
-    #plt.show()
-    
-    
-def plot_graphs(history):
-    
-    # b, g, r, y, o, -g, -m
-    
-    experiment_name = EXPERIMENT_NAME
-    plt.figure(figsize=(18, 5))
-    plt.subplot(131)
-    plt.plot(history.history['loss'],linewidth=4)
-    plt.plot(history.history['val_loss'],linewidth=4)
-    plt.title('{} loss'.format(experiment_name))
-    #plt.ylabel('Loss')
-    plt.xlabel('Epoch')
-    plt.legend(['Train', 'Test'], loc='upper left')
-    plt.grid(True)
-
-    
-
-    plt.subplot(132)
-    plt.plot(history.history['jacard'],linewidth=4)
-    plt.plot(history.history['val_jacard'],linewidth=4)
-    plt.title('{} Jacard'.format(experiment_name))
-    #plt.ylabel('Jacard')
-    plt.xlabel('Epoch')
-    plt.grid(True)
-    plt.legend(['Train', 'Test'], loc='upper left')
-
-
-
-    plt.subplot(133)
-    plt.plot(history.history['dice_coef'],linewidth=4)
-    plt.plot(history.history['val_dice_coef'],linewidth=4)
-    plt.title('{} Dice'.format(experiment_name))
-    #plt.ylabel('Dice')
-    plt.xlabel('Epoch')
-    plt.legend(['Train', 'Test'], loc='upper left')
-    plt.grid(True)
-    plt.savefig('{}/{}_graph.png'.format(LOG_PATH, EXPERIMENT_NAME), dpi=100)
-    #plt.show()
-
 # %%
 # Build standard U-Net model
 if unet_or_srunet == 0:
     print("Segmentation model")
     model = M.unet(input_size = (train_data.shape[1], train_data.shape[2], train_data.shape[-1]))
+    # Compiling
+    model.compile(optimizer=optim, loss=loss_func, metrics=[metrics.jacard, metrics.dice_coef])
 
 elif unet_or_srunet == 1:
     print("Shape regularization model")
     model = M.SRUNET(input_size = (x_train.shape[1], x_train.shape[2], x_train.shape[-1]))
+
+    # Compiling
+    model.compile(optimizer=optim, loss=loss_func, metrics=[metrics.jacard, metrics.dice_coef])
 
 
 elif unet_or_srunet == 2:
@@ -245,10 +167,13 @@ elif unet_or_srunet == 2:
     inputs = Input(shape=(train_data.shape[1], train_data.shape[2], train_data.shape[-1]))
     unet_output = unet_main(inputs)
     output = srunet(unet_output)
-    model = Model(inputs=[inputs], outputs=[output])
+    model = Model(inputs=[inputs], outputs=[unet_output,output])
 
-# Compiling
-model.compile(optimizer=optim, loss=loss_func, metrics=[metrics.jacard, metrics.dice_coef])
+    optim = 'adam'
+    loss_func = ['binary_crossentropy', 'binary_crossentropy']
+    loss_weights = [1, 1E1]
+
+    model.compile(optimizer=optim, loss=loss_func, loss_weights = loss_weights, metrics=[metrics.jacard, metrics.dice_coef])
 
 
 # Build U-Net model with custom encoder
@@ -259,41 +184,74 @@ model.compile(optimizer=optim, loss=loss_func, metrics=[metrics.jacard, metrics.
 
 model.summary()
 
-# %%
-"""
-## Callbacks
-"""
 
-# %%
-# Callbacks
-weights_path = "{}/{}.h5".format(LOG_PATH, EXPERIMENT_NAME)
-checkpointer = ModelCheckpoint(filepath=weights_path, verbose=1, monitor='val_jacard', mode='max', save_best_only=True)
-reduce_lr = ReduceLROnPlateau(monitor='val_jacard', factor=0.1, patience=5, verbose=1, min_lr=1e-8, mode='max') # new_lr = lr * factor
-early_stopping = EarlyStopping(monitor='val_jacard', min_delta=0, verbose=1, patience=8, mode='max', restore_best_weights=True)
-csv_logger = CSVLogger('{}/{}_training.csv'.format(LOG_PATH, EXPERIMENT_NAME))
-
-ie = classes.IntervalEvaluation(EXPERIMENT_NAME, LOG_PATH, interval,unet_or_srunet, validation_data=(x_test, y_test),
-                                training_data=(x_train, y_train))
-
-
-
-
-#generators
-training_generator = classes.DataGenerator_Augment(x_train, y_train, batch_size=batch_size, shuffle=True)
-validation_generator = classes.DataGenerator_Augment(x_test, y_test, batch_size=batch_size, shuffle=True)
 
 
 start_time = time.time()
 
 
-# Train model on dataset
-model.fit_generator(generator=training_generator,
-                    validation_data=validation_generator,callbacks=[ie, checkpointer, reduce_lr, csv_logger, early_stopping],
-                shuffle=True,
-                verbose = 2,epochs = epochs, steps_per_epoch= (len(x_train)*2) // batch_size)
+if (unet_or_srunet ==0 or unet_or_srunet == 1):
 
+    # %%
+    # Callbacks
+    weights_path = "{}/{}.h5".format(LOG_PATH, EXPERIMENT_NAME)
+    checkpointer = ModelCheckpoint(filepath=weights_path, verbose=1, monitor='val_jacard', mode='max',
+                                   save_best_only=True)
+    reduce_lr = ReduceLROnPlateau(monitor='val_jacard', factor=0.1, patience=5, verbose=1, min_lr=1e-8,
+                                  mode='max')  # new_lr = lr * factor
+    early_stopping = EarlyStopping(monitor='val_jacard', min_delta=0, verbose=1, patience=8, mode='max',
+                                   restore_best_weights=True)
+    csv_logger = CSVLogger('{}/{}_training.csv'.format(LOG_PATH, EXPERIMENT_NAME))
 
+    ie = classes.IntervalEvaluation(EXPERIMENT_NAME, LOG_PATH, interval, unet_or_srunet,
+                                    validation_data=(x_test, y_test),
+                                    training_data=(x_train, y_train))
 
+    #generators
+    training_generator = classes.DataGenerator_Augment(x_train, y_train, batch_size=batch_size, shuffle=True)
+    validation_generator = classes.DataGenerator_Augment(x_test, y_test, batch_size=batch_size, shuffle=True)
+
+    #Train model on dataset
+    model.fit_generator(generator=training_generator,
+                        validation_data=validation_generator,callbacks=[ie, checkpointer, reduce_lr, csv_logger, early_stopping],
+                    shuffle=True,
+                    verbose = 2,epochs = epochs, steps_per_epoch= (len(x_train)*2) // batch_size)
+
+    # %%
+    # Log training history
+    data_utils.plot_graphs(model.history,LOG_PATH, EXPERIMENT_NAME)
+
+elif (unet_or_srunet ==2):
+    #
+    # #generators
+    # training_generator = classes.DataGenerator_Augment(x_train, y_train, batch_size=batch_size, shuffle=True)
+    # validation_generator = classes.DataGenerator_Augment(x_test, y_test, batch_size=batch_size, shuffle=True)
+
+    # %%
+    # Callbacks
+    weights_path = "{}/{}.h5".format(LOG_PATH, EXPERIMENT_NAME)
+    checkpointer = ModelCheckpoint(filepath=weights_path, verbose=1, monitor='val_model_2_jacard', mode='max',
+                                   save_best_only=True)
+    reduce_lr = ReduceLROnPlateau(monitor='val_model_2_jacard', factor=0.1, patience=5, verbose=1, min_lr=1e-8,
+                                  mode='max')  # new_lr = lr * factor
+    early_stopping = EarlyStopping(monitor='val_model_2_jacard', min_delta=0, verbose=1, patience=8, mode='max',
+                                   restore_best_weights=True)
+    csv_logger = CSVLogger('{}/{}_training.csv'.format(LOG_PATH, EXPERIMENT_NAME))
+    ie = classes.IntervalEvaluation_cascaded(EXPERIMENT_NAME, LOG_PATH, interval, unet_or_srunet,
+                                    validation_data=(x_test, y_test),
+                                    training_data=(x_train, y_train))
+
+    model.fit(x_train, [y_train, y_train],
+                    batch_size=batch_size,
+                    epochs=epochs,
+                    validation_data=(x_test, [y_test, y_test]),
+                    callbacks=[ie, checkpointer, reduce_lr, csv_logger, early_stopping],
+                    shuffle=True,
+                    verbose = 2)
+
+    # %%
+    # Log training history
+    data_utils.plot_graphs_cascade(model.history,LOG_PATH, EXPERIMENT_NAME)
 
 
 end_time = time.time()
@@ -301,40 +259,38 @@ print("--- Time taken to train : %s hours ---" % ((end_time - start_time)//3600)
 
 
 
-# %%
-# Log training history
-plot_graphs(model.history)
+
 
 # %%
 # Evaluate trained model using Jaccard and Dice metric
 
-model = None
-model = load_model(weights_path, compile=False)
-yp = model.predict(x=x_test, batch_size=16, verbose=1)
-#Round off boolean masks
-yp = np.round(yp,0)
-yp.shape
-
-# %%
-y_test.shape, yp.shape
-
-# %%
-# Eval on train set
-yp_t = None
-yp_t = model.predict(x=x_train, batch_size=16, verbose=0)
-#Round off boolean masks
-yp_t = np.round(yp_t,0)
-yp_t.shape
-
-# %%
-yp_t.shape, yp.shape
-
-# %%
-y_train.shape, y_test.shape
-
-# %%
-np.savez('{}/{}_{}_mask_pred.npz'.format(LOG_PATH, CFG_NAME, DATASET_NAME), 
-         name1=y_train, name2=y_test, name3=yp_t, name4=yp)
+# model = None
+# model = load_model(weights_path, compile=False)
+# yp = model.predict(x=x_test, batch_size=16, verbose=1)
+# #Round off boolean masks
+# yp = np.round(yp,0)
+# yp.shape
+#
+# # %%
+# y_test.shape, yp.shape
+#
+# # %%
+# # Eval on train set
+# yp_t = None
+# yp_t = model.predict(x=x_train, batch_size=16, verbose=0)
+# #Round off boolean masks
+# yp_t = np.round(yp_t,0)
+# yp_t.shape
+#
+# # %%
+# yp_t.shape, yp.shape
+#
+# # %%
+# y_train.shape, y_test.shape
+#
+# # %%
+# np.savez('{}/{}_{}_mask_pred.npz'.format(LOG_PATH, CFG_NAME, DATASET_NAME),
+#          name1=y_train, name2=y_test, name3=yp_t, name4=yp)
 
 # %%
 # binary segmentation
