@@ -98,13 +98,6 @@ def saveCorruptionResults(figure_path, epoch, X, Y, filename, num = 5):
 def saveResultasPlot_cascade(figure_path, epoch, X, Y, Y_pred1,Y_pred2, filename, num = 5):
 
 
-    randomize = np.arange(len(X))
-    np.random.shuffle(randomize)
-    X = X[randomize[:num]]
-    Y = Y[randomize[:num]]
-    Y_pred1= Y_pred1[randomize[:num]]
-    Y_pred2 = Y_pred2[randomize[:num]]
-
 
     for j in range(num): #how many validation images to save (take care of the batch size, if batch size is less than this number then it wont work)
 

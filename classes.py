@@ -178,15 +178,16 @@ class IntervalEvaluation(Callback):
 
 
 class IntervalEvaluation_cascaded(Callback):
-	def __init__(self, model_name, logging_dir, interval, unet_or_srunet,validation_data=(), training_data=()):
+	def __init__(self, model_name, logging_dir, interval, unet_or_srunet,unet_main,validation_data=(), training_data=()):
 		super(Callback, self).__init__()
 		self.interval = interval
 		self.model_name = model_name
 		self.logging_dir = logging_dir
 		self.unet_or_srunet = unet_or_srunet
+		self.unet_main = unet_main
 
-		self.X_val, self.y_val = validation_data
-		self.X_train, self.y_train = training_data
+		self.X_val, self.y_val_encoded, self.y_val = validation_data
+		self.X_train, self.y_train_encoded, self.y_train = training_data
 
 	def on_train_begin(self, logs={}):
 		self.train_accuracy = []
@@ -209,8 +210,19 @@ class IntervalEvaluation_cascaded(Callback):
 
 	def on_epoch_end(self, epoch, logs={}):
 
-		y_unet_val, y_out_val = self.model.predict(self.X_val, verbose=0)
-		y_unet_train, y_out_train = self.model.predict(self.X_train, verbose=0)
+		num = 5
+
+		randomize = np.arange(len(self.X_val))
+		np.random.shuffle(randomize)
+
+		y_out_val = self.model.predict([self.X_val[randomize[:num]], self.y_val_encoded[randomize[:num]]], verbose=0)
+		y_unet_val = self.unet_main.predict(self.X_val[randomize[:num]], verbose=0)
+
+		randomize_train = np.arange(len(self.X_train))
+		np.random.shuffle(randomize_train)
+
+		y_out_train = self.model.predict([self.X_train[randomize_train[:num]], self.y_train_encoded[randomize_train[:num]]], verbose=0)
+		y_unet_train = self.unet_main.predict(self.X_train[randomize_train[:num]], verbose=0)
 
 
 		# SAving predictions per epoch
@@ -219,8 +231,8 @@ class IntervalEvaluation_cascaded(Callback):
 			os.mkdir(figure_path)
 
 		# save 5 training and 5 Validation at each epoch
-		data_utils.saveResultasPlot_cascade(figure_path, epoch, self.X_train, self.y_train,y_unet_train, y_out_train, 'Training', 5)
-		data_utils.saveResultasPlot_cascade(figure_path, epoch, self.X_val, self.y_val, y_unet_val, y_out_val, 'Validation', 5)
+		data_utils.saveResultasPlot_cascade(figure_path, epoch, self.X_train[randomize_train[:num]], self.y_train[randomize_train[:num]],y_unet_train, y_out_train, 'Training', num)
+		data_utils.saveResultasPlot_cascade(figure_path, epoch, self.X_val[randomize[:num]], self.y_val[randomize[:num]], y_unet_val, y_out_val, 'Validation', num)
 
 
 		if epoch % self.interval == 0:
@@ -230,6 +242,10 @@ class IntervalEvaluation_cascaded(Callback):
 			#
 			# fpr, tpr, _ = roc_curve(self.y_val.flatten()>0.5, y_pred_val.flatten())
 			# roc_auc_val = auc(fpr, tpr)
+
+			y_out_val = self.model.predict([self.X_val, self.y_val_encoded], verbose=0)
+			y_out_train = self.model.predict([self.X_train, self.y_train_encoded], verbose=0)
+
 
 			operation_point, _, _, accuracy, specificity, sensitivity, dice = data_utils.get_operating_points(
 				self.y_train.flatten(), y_out_train.flatten())

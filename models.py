@@ -112,6 +112,54 @@ def SRUNET(input_size=(256, 256, 1)):
     return model
 
 
+def SRUNET_cascade(input_size=(256, 256, 1)):
+    "Baseline SRNET"
+
+    inputs = Input(input_size)
+    conv1 = Conv2D(32, (3, 3), activation='relu', padding='same')(inputs)
+    conv1 = Conv2D(32, (3, 3), activation='relu', padding='same')(conv1)
+    pool1 = MaxPooling2D(pool_size=(2, 2))(conv1) #128,128,32
+
+    conv2 = Conv2D(64, (3, 3), activation='relu', padding='same')(pool1)
+    conv2 = Conv2D(64, (3, 3), activation='relu', padding='same')(conv2)
+    pool2 = MaxPooling2D(pool_size=(2, 2))(conv2) #64,64,64
+
+    conv3 = Conv2D(128, (3, 3), activation='relu', padding='same')(pool2)
+    conv3 = Conv2D(128, (3, 3), activation='relu', padding='same')(conv3)
+    pool3 = MaxPooling2D(pool_size=(2, 2))(conv3) #32,32,128
+
+    conv4 = Conv2D(256, (3, 3), activation='relu', padding='same')(pool3)
+    conv4 = Conv2D(256, (3, 3), activation='relu', padding='same')(conv4)
+    pool4 = MaxPooling2D(pool_size=(2, 2))(conv4) #16,16,256
+
+    conv5 = Conv2D(512, (3, 3), activation='relu', padding='same')(pool4)
+    conv5 = Conv2D(512, (3, 3), activation='relu', padding='same')(conv5) #16,16,512
+
+
+    up6 = Conv2DTranspose(256, (2, 2), strides=(2, 2), padding='same')(conv5)
+    conv6 = Conv2D(256, (3, 3), activation='relu', padding='same')(up6)
+    conv6 = Conv2D(256, (3, 3), activation='relu', padding='same')(conv6) #32,32,256
+
+    up7 = Conv2DTranspose(128, (2, 2), strides=(2, 2), padding='same')(conv6)
+    conv7 = Conv2D(128, (3, 3), activation='relu', padding='same')(up7)
+    conv7 = Conv2D(128, (3, 3), activation='relu', padding='same')(conv7) #64,64,128
+
+    up8 = Conv2DTranspose(64, (2, 2), strides=(2, 2), padding='same')(conv7)
+    conv8 = Conv2D(64, (3, 3), activation='relu', padding='same')(up8)
+    conv8 = Conv2D(64, (3, 3), activation='relu', padding='same')(conv8)  #128,128,64
+
+
+    up9 = Conv2DTranspose(32, (2, 2), strides=(2, 2), padding='same')(conv8)
+    conv9 = Conv2D(32, (3, 3), activation='relu', padding='same')(up9)
+    conv9 = Conv2D(32, (3, 3), activation='relu', padding='same')(conv9) #256,256,32
+
+    # Binary segmentation
+    conv10 = Conv2D(1, (1, 1), activation='sigmoid')(conv9)
+
+    model = Model(inputs=[inputs], outputs=[conv5, conv10])
+
+    return model
+
 def unet_backbone(backbone, input_size, encoder_weights=None):
     
     model = sm.Unet(backbone_name=backbone, input_shape=input_size, classes=1, activation='sigmoid', encoder_weights=encoder_weights)

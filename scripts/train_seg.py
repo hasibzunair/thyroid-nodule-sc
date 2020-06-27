@@ -23,7 +23,7 @@ from keras import backend as K
 from sklearn.model_selection import train_test_split
 from sklearn.model_selection import StratifiedKFold
 from tensorflow.keras.models import load_model
-
+import tensorflow as tf
 
 # Go back one step to read module
 import sys
@@ -63,7 +63,7 @@ TRAINED_SRUNET_PATH = os.path.join(ROOT_DIR, "logs", TRAINED_SRNET)
 # Train
 batch_size = 16
 epochs = 100000
-interval = 1 #show correct dice and log it after every ? epochs
+interval = 10 #show correct dice and log it after every ? epochs
 optim = 'adam'
 loss_func = 'binary_crossentropy'
 
@@ -157,23 +157,43 @@ elif unet_or_srunet == 2:
 
     unet_main = M.unet(input_size=(train_data.shape[1], train_data.shape[2], train_data.shape[-1]))
 
-    srunet = M.SRUNET(input_size = (x_train.shape[1], x_train.shape[2], x_train.shape[-1]))
+    srunet = M.SRUNET_cascade(input_size = (x_train.shape[1], x_train.shape[2], x_train.shape[-1]))
     srunet.load_weights(TRAINED_SRUNET_PATH + '/' + TRAINED_SRNET + '.h5')
 
     #freezing pretrained SRUNET
     srunet.trainable = False
 
     # Defining Cascaded Architechture
+    encoded_gt = Input(shape=(16,16,512)) #shape of encoded output
+
     inputs = Input(shape=(train_data.shape[1], train_data.shape[2], train_data.shape[-1]))
     unet_output = unet_main(inputs)
-    output = srunet(unet_output)
-    model = Model(inputs=[inputs], outputs=[unet_output,output])
+    encoded, output = srunet(unet_output)
+    model = Model(inputs=[inputs, encoded_gt], outputs=[output])
 
     optim = 'adam'
-    loss_func = ['binary_crossentropy', 'binary_crossentropy']
-    loss_weights = [1E1, 1]
 
-    model.compile(optimizer=optim, loss=loss_func, loss_weights = loss_weights, metrics=[metrics.jacard, metrics.dice_coef])
+    #loss_func = abs(unet -out)**2 +a(encodere(GT)-encoder(unet)) + b(abs(GT-unet)**2)
+    # Define custom loss
+    bce = tf.keras.losses.BinaryCrossentropy()
+    def custom_loss(unet_output, encoded, encoded_gt):
+
+
+        def loss(y_true, y_pred):
+            a = 0.5
+            b = 0.5
+            loss = metrics.mas(unet_output, y_pred) + a * (metrics.mas(encoded_gt, encoded)) + b * (
+                metrics.mas(y_true, unet_output))
+
+            # loss = bce(unet_output, y_pred) + (
+            #     bce(y_true, unet_output))
+
+            return loss
+
+        return loss
+
+
+    model.compile(optimizer=optim, loss = custom_loss(unet_output, encoded, encoded_gt), metrics=[metrics.jacard, metrics.dice_coef])
 
 
 # Build U-Net model with custom encoder
@@ -222,7 +242,12 @@ if (unet_or_srunet ==0 or unet_or_srunet == 1):
     data_utils.plot_graphs(model.history,LOG_PATH, EXPERIMENT_NAME)
 
 elif (unet_or_srunet ==2):
-    #
+    #[unet_output, encoded, output]
+    #Generating  Encoded results of GT in advance, with has to be inserted to the generators if we wish to use augmentation later
+    y_train_encoded, _ = srunet.predict(x=y_train, batch_size=16, verbose=2)
+    y_test_encoded, _ = srunet.predict(x=y_test, batch_size=16, verbose=2)
+
+
     # #generators
     # training_generator = classes.DataGenerator_Augment(x_train, y_train, batch_size=batch_size, shuffle=True)
     # validation_generator = classes.DataGenerator_Augment(x_test, y_test, batch_size=batch_size, shuffle=True)
@@ -230,28 +255,30 @@ elif (unet_or_srunet ==2):
     # %%
     # Callbacks
     weights_path = "{}/{}.h5".format(LOG_PATH, EXPERIMENT_NAME)
-    checkpointer = ModelCheckpoint(filepath=weights_path, verbose=1, monitor='val_model_2_jacard', mode='max',
+    checkpointer = ModelCheckpoint(filepath=weights_path, verbose=1, monitor='val_jacard', mode='max',
                                    save_best_only=True)
-    reduce_lr = ReduceLROnPlateau(monitor='val_model_2_jacard', factor=0.1, patience=5, verbose=1, min_lr=1e-8,
+    reduce_lr = ReduceLROnPlateau(monitor='val_jacard', factor=0.1, patience=5, verbose=1, min_lr=1e-8,
                                   mode='max')  # new_lr = lr * factor
-    early_stopping = EarlyStopping(monitor='val_model_2_jacard', min_delta=0, verbose=1, patience=8, mode='max',
+    early_stopping = EarlyStopping(monitor='val_jacard', min_delta=0, verbose=1, patience=8, mode='max',
                                    restore_best_weights=True)
     csv_logger = CSVLogger('{}/{}_training.csv'.format(LOG_PATH, EXPERIMENT_NAME))
-    ie = classes.IntervalEvaluation_cascaded(EXPERIMENT_NAME, LOG_PATH, interval, unet_or_srunet,
-                                    validation_data=(x_test, y_test),
-                                    training_data=(x_train, y_train))
+    ie = classes.IntervalEvaluation_cascaded(EXPERIMENT_NAME, LOG_PATH, interval, unet_or_srunet,unet_main,
+                                    validation_data=(x_test, y_test_encoded, y_test),
+                                    training_data=(x_train, y_train_encoded, y_train))
 
-    model.fit(x_train, [y_train, y_train],
+
+
+    model.fit([x_train, y_train_encoded], y_train,
                     batch_size=batch_size,
                     epochs=epochs,
-                    validation_data=(x_test, [y_test, y_test]),
+                    validation_data=([x_test, y_test_encoded],y_test),
                     callbacks=[ie, checkpointer, reduce_lr, csv_logger, early_stopping],
                     shuffle=True,
                     verbose = 2)
 
     # %%
     # Log training history
-    data_utils.plot_graphs_cascade(model.history,LOG_PATH, EXPERIMENT_NAME)
+    data_utils.plot_graphs(model.history,LOG_PATH, EXPERIMENT_NAME)
 
 
 end_time = time.time()
