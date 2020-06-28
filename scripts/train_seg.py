@@ -182,11 +182,13 @@ elif unet_or_srunet == 2:
         def loss(y_true, y_pred):
             a = 0.5
             b = 0.5
-            loss = metrics.mas(unet_output, y_pred) + a * (metrics.mas(encoded_gt, encoded)) + b * (
-                metrics.mas(y_true, unet_output))
 
-            # loss = bce(unet_output, y_pred) + (
-            #     bce(y_true, unet_output))
+
+            loss = tf.keras.backend.sqrt(metrics.mas(unet_output, y_pred) + a * (metrics.mas(encoded_gt, encoded)) + b * (
+                metrics.mas(y_true, unet_output)))
+
+            # loss = bce(y_true, y_pred) + (
+            #     20*bce(y_true, unet_output))
 
             return loss
 

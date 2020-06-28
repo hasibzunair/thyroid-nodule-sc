@@ -10,7 +10,7 @@ def dice_coef(y_true, y_pred):
 
 
 def mas(y_true, y_pred):
-    return (K.mean((K.abs(y_pred - y_true))**2, axis=(-1,-2,-3)))
+    return (K.mean((y_pred - y_true)**2, axis=(-1,-2,-3)))
 
 
 
