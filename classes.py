@@ -147,9 +147,9 @@ class IntervalEvaluation(Callback):
 
 
 			# This part is for generating prediction from intermediate epochs
-			save_at_epochs = [2,4,6,8,10,12,14,16,18,20]
-
-
+			#save_at_epochs = [2,4,6,8,10,12,14,16,18,20]
+			save_at_epochs = [2,4] # Do this when generating data for SRunet is not needed
+            
 			if (np.sum((epoch) == np.transpose(save_at_epochs)) > 0):
 
 				print('\nReached Epoch Number %s and saving intermediate epoch results...' % (

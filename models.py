@@ -9,7 +9,7 @@ from keras.optimizers import *
 from keras.layers import *        
 import tensorflow as tf
 
-#import segmentation_models as sm
+import segmentation_models as sm
 
 import metrics as M
 import losses as L
@@ -162,7 +162,12 @@ def SRUNET_cascade(input_size=(256, 256, 1)):
 
 def unet_backbone(backbone, input_size, encoder_weights=None):
     
-    model = sm.Unet(backbone_name=backbone, input_shape=input_size, classes=1, activation='sigmoid', encoder_weights=encoder_weights)
+    base_model = sm.Unet(backbone_name=backbone, input_shape=(input_size[0], input_size[1], 3), classes=1, activation='sigmoid', encoder_weights=encoder_weights)
+    
+    inp = Input(shape=(256, 256, 1))
+    l1 = Conv2D(3, (1, 1))(inp) # map N channels data to 3 channels
+    out = base_model(l1)
+    model = Model(inputs=[inp], outputs=[out])
     
     # Compile model with optim and loss
     optim = 'adam' 
