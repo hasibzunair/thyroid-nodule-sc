@@ -41,12 +41,19 @@ import metrics
 # Name data and config types
 DATASET_NAME = "data0" # name of the npz file
 SRUNET_DATA = "data0_unet_data_augment" # SRUNET data path
-CFG_NAME = "Cascaded_network_sp_loss" # name of the architecture/configuration for segmentation model
+CFG_NAME = "unet_efb0" # name of the architecture/configuration for segmentation model
 TRAINED_SRNET = "data0_data0_SRNET_with_augmented_data_[6, 10, 12, 16, 20]" # Path of SR-Unet weight 
 
 epoch_list = [6, 10, 12, 16, 20]
-unet_or_srunet = 2 #0 for Unet, 1 for SRNET, #2 cascaded
+unet_or_srunet = 0 #0 for Unet, 1 for SRNET, #2 cascaded
 
+
+# Configs for custom encoder
+encoder_flag = 1 # Set 1 to use custom encoder in Unet
+backbone_name = 'efficientnetb0'
+encoder_weights = "imagenet"
+    
+    
 ROOT_DIR = os.path.abspath("../")
 DATASET_FOLDER = "npy_data"
 DATASET_PATH = os.path.join(ROOT_DIR, "datasets", DATASET_FOLDER)
@@ -61,11 +68,11 @@ TRAINED_SRUNET_PATH = os.path.join(ROOT_DIR, "logs", TRAINED_SRNET)
 
 # %%
 # Train
-batch_size = 16
+batch_size = 8 # 16 for unet, 8 when using custom encoder vgg, effb0, 4 effb3
 epochs = 100000
 interval = 10 #show correct dice and log it after every ? epochs
 optim = 'adam'
-loss_func = 'binary_crossentropy'
+loss_func = l.dice_coef_loss #'binary_crossentropy'
 
 if not os.path.exists(os.path.join(ROOT_DIR, "logs")):
     os.mkdir(os.path.join(ROOT_DIR, "logs"))
@@ -140,6 +147,7 @@ print("Y Val- max: %s, min: %s" % (np.max(y_test), np.min(y_test)))
 # Build standard U-Net model
 if unet_or_srunet == 0:
     print("Segmentation model")
+    # Vanilla U-Net
     model = M.unet(input_size = (train_data.shape[1], train_data.shape[2], train_data.shape[-1]))
     # Compiling
     model.compile(optimizer=optim, loss=loss_func, metrics=[metrics.jacard, metrics.dice_coef])
@@ -196,16 +204,20 @@ elif unet_or_srunet == 2:
 
 
     model.compile(optimizer=optim, loss = custom_loss(unet_output, encoded, encoded_gt), metrics=[metrics.jacard, metrics.dice_coef])
+    
+if unet_or_srunet == 0 and encoder_flag == 1:
+    
+    print("Unet with custom encoder")
+    # Build U-Net model with custom encoder
+    model = M.unet_backbone(backbone=backbone_name, input_size = (train_data.shape[1], 
+                train_data.shape[2], train_data.shape[-1]), encoder_weights=encoder_weights)
+
+    # Compiling
+    model.compile(optimizer=optim, loss=loss_func, metrics=[metrics.jacard, metrics.dice_coef])
 
 
-# Build U-Net model with custom encoder
-#backbone_name = 'vgg16'
-#encoder_weights = None
-#model = M.unet_backbone(backbone=backbone_name, input_size = (train_data.shape[1], 
-#            train_data.shape[2], train_data.shape[-1]), encoder_weights=encoder_weights)
-
+    
 model.summary()
-
 
 
 
@@ -214,7 +226,7 @@ start_time = time.time()
 
 if (unet_or_srunet ==0 or unet_or_srunet == 1):
 
-    # %%
+    print("Train Unet or SRUnet with data augmentation.")
     # Callbacks
     weights_path = "{}/{}.h5".format(LOG_PATH, EXPERIMENT_NAME)
     checkpointer = ModelCheckpoint(filepath=weights_path, verbose=1, monitor='val_jacard', mode='max',
