@@ -41,7 +41,7 @@ import metrics
 # Name data and config types
 DATASET_NAME = "data0" # name of the npz file
 SRUNET_DATA = "data0_unet_data_augment" # SRUNET data path
-CFG_NAME = "unet_vgg16" # name of the architecture/configuration for segmentation model
+CFG_NAME = "unet_efb0" # name of the architecture/configuration for segmentation model
 TRAINED_SRNET = "data0_data0_SRNET_with_augmented_data_[6, 10, 12, 16, 20]" # Path of SR-Unet weight 
 
 epoch_list = [6, 10, 12, 16, 20]
@@ -72,7 +72,7 @@ batch_size = 8 # 16 for unet, 8 when using custom encoder vgg, effb0, 4 effb3
 epochs = 100000
 interval = 10 #show correct dice and log it after every ? epochs
 optim = 'adam'
-loss_func = 'binary_crossentropy'
+loss_func = l.dice_coef_loss #'binary_crossentropy'
 
 if not os.path.exists(os.path.join(ROOT_DIR, "logs")):
     os.mkdir(os.path.join(ROOT_DIR, "logs"))
