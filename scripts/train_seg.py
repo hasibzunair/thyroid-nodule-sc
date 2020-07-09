@@ -36,7 +36,6 @@ import losses as l
 import metrics
 
 
-
 # %%
 # Name data and config types
 DATASET_NAME = "data0" # name of the npz file
@@ -55,7 +54,8 @@ encoder_weights = "imagenet"
     
     
 ROOT_DIR = os.path.abspath("../")
-DATASET_FOLDER = "npy_data"
+#DATASET_FOLDER = "npy_data"
+DATASET_FOLDER = "/home/hasib/scratch/npy_data" # use this when on server
 DATASET_PATH = os.path.join(ROOT_DIR, "datasets", DATASET_FOLDER)
 SRUNET_DATA_PATH = os.path.join(ROOT_DIR, "logs", SRUNET_DATA, "sr_unetdata")
 
