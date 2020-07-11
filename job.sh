@@ -19,7 +19,7 @@ source /home/hasib/projects/def-abhamza/hasib/envs/gpu/bin/activate
 
 # Launch script
 cd scripts
-python train_seg_enc.py
+python train_seg.py
 # python train_classifier.py
 
 

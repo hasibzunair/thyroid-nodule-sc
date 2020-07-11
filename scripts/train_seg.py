@@ -68,7 +68,7 @@ TRAINED_SRUNET_PATH = os.path.join(ROOT_DIR, "logs", TRAINED_SRNET)
 
 # %%
 # Train
-batch_size = 8 # 16 for unet, 8 when using custom encoder vgg, effb0, 4 effb3
+batch_size = 8 # 16 for unet
 epochs = 100000
 interval = 10 #show correct dice and log it after every ? epochs
 optim = 'adam'
@@ -233,7 +233,7 @@ if (unet_or_srunet ==0 or unet_or_srunet == 1):
                                    save_best_only=True)
     reduce_lr = ReduceLROnPlateau(monitor='val_jacard', factor=0.1, patience=5, verbose=1, min_lr=1e-8,
                                   mode='max')  # new_lr = lr * factor
-    early_stopping = EarlyStopping(monitor='val_jacard', min_delta=0, verbose=1, patience=8, mode='max',
+    early_stopping = EarlyStopping(monitor='val_jacard', min_delta=0, verbose=1, patience=15, mode='max',
                                    restore_best_weights=True)
     csv_logger = CSVLogger('{}/{}_training.csv'.format(LOG_PATH, EXPERIMENT_NAME))
 
