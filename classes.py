@@ -53,6 +53,13 @@ class IntervalEvaluation(Callback):
 		self.X_val, self.y_val = validation_data
 		self.X_train, self.y_train = training_data
 
+		#for speeding up evaluation
+		randomize = np.arange(len(self.X_train))
+		np.random.shuffle(randomize)
+		self.X_train = self.X_train[randomize[:300]]
+		self.y_train = self.y_train[randomize[:300]]
+
+
 	def on_train_begin(self, logs={}):
 		self.train_accuracy_in = []
 		self.train_sensitivity_in = []
