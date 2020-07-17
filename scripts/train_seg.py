@@ -30,6 +30,7 @@ import tensorflow as tf
 import sys
 sys.path.insert(0,"..") 
 
+import segmentation_models as sm
 import data_utils
 import classes
 import models as M
