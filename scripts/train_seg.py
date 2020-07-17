@@ -42,12 +42,13 @@ import metrics
 # Name data and config types
 DATASET_NAME = "data0" # name of the npz file
 SRUNET_DATA = "data0_unet_data_augment" # SRUNET data path
-CFG_NAME = "SRUNET_efficient_net_focal_augment" # name of the architecture/configuration for segmentation model
+CFG_NAME = "Cascaded_efb0_augmentation" # name of the architecture/configuration for segmentation model
 TRAINED_SRNET = "data0_data0_SRNET_with_augmented_data_[6, 10, 12, 16, 20]" # Path of SR-Unet weight 
 
 epoch_list = [10, 12, 16, 20]
-unet_or_srunet = 1 #0 for Unet, 1 for SRNET, #2 cascaded
-save_inter_layers_flag = 0
+unet_or_srunet = 2 #0 for Unet, 1 for SRNET, #2 cascaded
+save_inter_layers_flag = 0 #this is used for saving intermediate layer results (set to ) if training SRUNET is not required)
+
 augmentation_flag = 1
 ## This part is to load best predictions as validation set for SRUNET and used all training set for training
 #previously 20% of training was used for validation
@@ -113,7 +114,7 @@ print(os.listdir(DATASET_PATH))
 # Load the dataset
 if (unet_or_srunet == 0 or unet_or_srunet ==2):
     data = np.load(DATASET_PATH + '/{}.npz'.format(DATASET_NAME))
-    train_data = data['name1']
+    train_data = data['name1']/255
     train_labels = data['name2']
 
     train_data = np.expand_dims(train_data, axis=-1)
@@ -132,6 +133,8 @@ if (unet_or_srunet == 0 or unet_or_srunet ==2):
     x_test = train_data[2915:]
     y_train = train_labels[:2915]
     y_test = train_labels[2915:]
+
+
 
 
 elif unet_or_srunet == 1: #for SRNET
@@ -221,7 +224,13 @@ if (unet_or_srunet == 1 and encoder_flag == 0):
 if unet_or_srunet == 2:
     print("Cascaded Network")
 
-    unet_main = M.unet(input_size=(train_data.shape[1], train_data.shape[2], train_data.shape[-1]))
+    if encoder_flag == 1:
+        # Build U-Net model with custom encoder
+        unet_main = M.unet_backbone(backbone=backbone_name, input_size = (train_data.shape[1],
+                    train_data.shape[2], train_data.shape[-1]), encoder_weights=encoder_weights)
+
+    else:
+        unet_main = M.unet(input_size=(train_data.shape[1], train_data.shape[2], train_data.shape[-1]))
 
     srunet = M.SRUNET_cascade(input_size = (x_train.shape[1], x_train.shape[2], x_train.shape[-1]))
     srunet.load_weights(TRAINED_SRUNET_PATH + '/' + TRAINED_SRNET + '.h5')
@@ -359,15 +368,25 @@ elif (unet_or_srunet ==2):
                                     validation_data=(x_test, y_test_encoded, y_test),
                                     training_data=(x_train, y_train_encoded, y_train))
 
+    if augmentation_flag == 1:
+        #generators
+        training_generator = classes.DataGenerator_Augment_cascaded(x_train, srunet, y_train, batch_size=batch_size, shuffle=True)
+        validation_generator = classes.DataGenerator_Augment_cascaded(x_test, srunet, y_test, batch_size=batch_size, shuffle=True)
 
+        #Train model on dataset
+        model.fit_generator(generator=training_generator,
+                            validation_data=validation_generator,callbacks=[checkpointer, reduce_lr, csv_logger, early_stopping],
+                        shuffle=True,
+                        verbose = 2,epochs = epochs, steps_per_epoch= (len(x_train)*2) // batch_size)
 
-    model.fit([x_train, y_train_encoded], y_train,
-                    batch_size=batch_size,
-                    epochs=epochs,
-                    validation_data=([x_test, y_test_encoded],y_test),
-                    callbacks=[ie, checkpointer, reduce_lr, csv_logger, early_stopping],
-                    shuffle=True,
-                    verbose = 2)
+    else:
+        model.fit([x_train, y_train_encoded], y_train,
+                        batch_size=batch_size,
+                        epochs=epochs,
+                        validation_data=([x_test, y_test_encoded],y_test),
+                        callbacks=[checkpointer, reduce_lr, csv_logger, early_stopping],
+                        shuffle=True,
+                        verbose = 2)
 
     # %%
     # Log training history

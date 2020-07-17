@@ -318,11 +318,13 @@ class IntervalEvaluation_cascaded(Callback):
 		self.train_sensitivity = []
 		self.train_specificity = []
 		self.train_dice = []
+		self.train_jaccard = []
 
 		self.val_accuracy = []
 		self.val_sensitivity = []
 		self.val_specificity = []
 		self.val_dice = []
+		self.val_jaccard = []
 
 		self.epochz = []
 
@@ -371,7 +373,7 @@ class IntervalEvaluation_cascaded(Callback):
 			y_out_train = self.model.predict([self.X_train, self.y_train_encoded], verbose=0)
 
 
-			operation_point, _, _, accuracy, specificity, sensitivity, dice = data_utils.get_operating_points(
+			operation_point, _, _, accuracy, specificity, sensitivity, dice, jaccard = data_utils.get_operating_points(
 				self.y_train.flatten(), y_out_train.flatten())
 
 			print(
@@ -386,8 +388,10 @@ class IntervalEvaluation_cascaded(Callback):
 			self.train_sensitivity.append(sensitivity)
 			self.train_specificity.append(specificity)
 			self.train_dice.append(dice)
+			self.train_jaccard.append(jaccard)
 
-			operation_point, _, _, accuracy, specificity, sensitivity, dice = data_utils.use_operating_points(
+
+			operation_point, _, _, accuracy, specificity, sensitivity, dice, jaccard = data_utils.use_operating_points(
 				operation_point,
 				self.y_val.flatten(), y_out_val.flatten())
 
@@ -402,6 +406,7 @@ class IntervalEvaluation_cascaded(Callback):
 			self.val_sensitivity.append(sensitivity)
 			self.val_specificity.append(specificity)
 			self.val_dice.append(dice)
+			self.val_jaccard.append(jaccard)
 
 			# np.savez(os.path.join(self.logging_dir, self.model_name, 'val_metrics'),
 			#          name1=self.val_accuracy,
@@ -416,9 +421,9 @@ class IntervalEvaluation_cascaded(Callback):
 			# save as csv file
 			df = pandas.DataFrame(data={"epoch": self.epochz, "train_accuracy": self.train_accuracy,
 										"train_sensitivity": self.train_sensitivity,
-										"train_specificity": self.train_specificity, "train_dice": self.train_dice,
+										"train_specificity": self.train_specificity, "train_dice": self.train_dice, "train_jaccard": self.train_jaccard,
 										"val_accuracy": self.val_accuracy, "val_sensitivity": self.val_sensitivity,
-										"val_specificity": self.val_specificity, "val_dice": self.val_dice})
+										"val_specificity": self.val_specificity, "val_dice": self.val_dice, "val_jaccard": self.val_jaccard})
 			df.to_csv(os.path.join(self.logging_dir, 'log2.csv'), sep=',', index=False)
 
 
@@ -580,5 +585,94 @@ class DataGenerator_Augment(keras.utils.Sequence):
         # X /= 255
     
         return X, y
-    
-    
+
+
+class DataGenerator_Augment_cascaded(keras.utils.Sequence):
+	'Generates data for Keras'
+
+	def __init__(self, Xdata,srunet, Ydata, batch_size=32, shuffle=True):
+		'Initialization'
+		self.batch_size = batch_size
+		self.shuffle = shuffle
+		self.Xdata = Xdata
+		self.srunet = srunet
+		self.Ydata = Ydata
+		self.on_epoch_end()
+
+	def __len__(self):
+		'Denotes the number of batches per epoch'
+		return int(np.floor(len(self.Xdata) / self.batch_size))
+
+	def __getitem__(self, index):
+		'Generate one batch of data'
+		# Generate indexes of the batch
+		indexes = self.indexes[index * self.batch_size:(index + 1) * self.batch_size]
+		# Generate data
+		X, y = self.__data_generation(indexes)
+
+		return X, y_encoded, y
+
+	def on_epoch_end(self):
+		'Updates indexes after each epoch'
+		self.indexes = np.arange(len(self.Xdata))
+		if self.shuffle == True:
+			np.random.shuffle(self.indexes)
+
+	def __data_generation(self, indexes):
+		'Generates data containing batch_size samples'  # X : (n_samples, *dim, n_channels)
+		# Generate data
+		X = self.Xdata[indexes]
+		y = self.Ydata[indexes]
+
+		seq = iaa.Sequential([
+			iaa.Fliplr(0.5),  # Flip Y-axis
+			iaa.TranslateX(px=(-20, 20)),  # Translate along X axis by 20-20 pixels
+			iaa.TranslateY(px=(-20, 20)),  # Trasnlate Y
+			iaa.Rotate((-20, 20))  # Rotate
+			# iaa.ScaleX((0.5, 1.5)), # Along width 50%-150% of size
+			# iaa.ScaleY((0.5, 1.5)), # Along height
+			# iaa.Pepper(0.1), # Replace 10% of pixel with blackish colors
+			# iaa.Salt(0.1), # Whiteish colors
+			# iaa.GaussianBlur(sigma=(0, 3.0))
+		], random_order=True)
+
+		counter = 0
+		RESIZE_DIM = X.shape[1]
+		RESIZE_DIM_ = X.shape[2]
+		channels = X.shape[-1]
+		# print(RESIZE_DIM, RESIZE_DIM_, channels)
+		X_values_augmented = []
+		Y_values_augmented = []
+
+		# print(np.unique(y[0]))
+		for a, b in zip(X, y):
+			for p in range(1):
+				# print(a.shape, b.shape)
+				# images_aug = seq.augment_images(a.reshape(1,RESIZE_DIM,RESIZE_DIM_,channels))
+				# masks_aug = seq.augment_images(b.reshape(1,RESIZE_DIM,RESIZE_DIM_,1))
+
+				images_aug, masks_aug = seq(images=a.reshape(1, RESIZE_DIM, RESIZE_DIM_, channels),
+											segmentation_maps=b.reshape(1, RESIZE_DIM, RESIZE_DIM_, 1).astype('int16'))
+
+				# print(images_aug.shape, masks_aug.shape)
+
+				X_values_augmented.append(images_aug.reshape(RESIZE_DIM, RESIZE_DIM_, channels))
+				Y_values_augmented.append(masks_aug.reshape(RESIZE_DIM, RESIZE_DIM_, 1))
+
+			counter = counter + 1
+
+		# prev number of images = n
+		# augmented number of images = n * 4 ( 2 seq 2 times)
+		X_values_augmented = np.asarray(X_values_augmented)
+		Y_values_augmented = np.asarray(Y_values_augmented)
+
+		X = np.concatenate((X, X_values_augmented), axis=0)
+		y = np.concatenate((y, Y_values_augmented), axis=0)
+
+		y_encoded, _ = self.srunet.predict(x=y, batch_size=16, verbose=2)
+
+		# Normalize data to [0-1]
+		# X = X.astype('float32')
+		# X /= 255
+		X = [X, y_encoded]
+		return X, y
