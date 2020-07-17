@@ -14,6 +14,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import time
 from tqdm import tqdm
+import keras
 from keras.callbacks import ModelCheckpoint, CSVLogger, EarlyStopping, ReduceLROnPlateau
 from keras.layers import Input
 from keras.models import Model
@@ -29,6 +30,7 @@ import tensorflow as tf
 import sys
 sys.path.insert(0,"..") 
 
+import segmentation_models as sm
 import data_utils
 import classes
 import models as M
@@ -40,7 +42,7 @@ import metrics
 # Name data and config types
 DATASET_NAME = "data0" # name of the npz file
 SRUNET_DATA = "data0_unet_data_augment" # SRUNET data path
-CFG_NAME = "unet_efb0" # name of the architecture/configuration for segmentation model
+CFG_NAME = "unet_efb3" # name of the architecture/configuration for segmentation model
 TRAINED_SRNET = "data0_data0_SRNET_with_augmented_data_[6, 10, 12, 16, 20]" # Path of SR-Unet weight 
 
 epoch_list = [6, 10, 12, 16, 20]
@@ -49,7 +51,7 @@ unet_or_srunet = 0 #0 for Unet, 1 for SRNET, #2 cascaded
 
 # Configs for custom encoder
 encoder_flag = 1 # Set 1 to use custom encoder in Unet
-backbone_name = 'efficientnetb0'
+backbone_name = 'efficientnetb3'
 encoder_weights = "imagenet"
     
     
@@ -68,11 +70,26 @@ TRAINED_SRUNET_PATH = os.path.join(ROOT_DIR, "logs", TRAINED_SRNET)
 
 # %%
 # Train
-batch_size = 8 # 16 for unet
-epochs = 100000
+lr = 0.0001 # 0.0001
+batch_size = 16  # 16 for unet
+epochs = 300
 interval = 10 #show correct dice and log it after every ? epochs
-optim = 'adam'
-loss_func = l.dice_coef_loss #'binary_crossentropy'
+optim = 'adam' #keras.optimizers.Adam(lr)
+loss_func = l.dice_coef_loss
+
+# Define custom loss
+################################################
+
+dice_loss = sm.losses.DiceLoss()
+jacard_loss = sm.losses.JaccardLoss()
+focal_loss = sm.losses.BinaryFocalLoss()
+
+total_loss = (0.5 * focal_loss) + (1 * jacard_loss)
+
+# Comment this line to not use custom loss, use what is defined at the top
+#loss_func = total_loss
+################################################
+
 
 if not os.path.exists(os.path.join(ROOT_DIR, "logs")):
     os.mkdir(os.path.join(ROOT_DIR, "logs"))
@@ -205,6 +222,8 @@ elif unet_or_srunet == 2:
 
     model.compile(optimizer=optim, loss = custom_loss(unet_output, encoded, encoded_gt), metrics=[metrics.jacard, metrics.dice_coef])
     
+    
+    
 if unet_or_srunet == 0 and encoder_flag == 1:
     
     print("Unet with custom encoder")
@@ -226,14 +245,14 @@ start_time = time.time()
 
 if (unet_or_srunet ==0 or unet_or_srunet == 1):
 
-    print("Train Unet or SRUnet with data augmentation.")
+    print("Train Unet with data augmentation.")
     # Callbacks
     weights_path = "{}/{}.h5".format(LOG_PATH, EXPERIMENT_NAME)
     checkpointer = ModelCheckpoint(filepath=weights_path, verbose=1, monitor='val_jacard', mode='max',
                                    save_best_only=True)
     reduce_lr = ReduceLROnPlateau(monitor='val_jacard', factor=0.1, patience=5, verbose=1, min_lr=1e-8,
                                   mode='max')  # new_lr = lr * factor
-    early_stopping = EarlyStopping(monitor='val_jacard', min_delta=0, verbose=1, patience=15, mode='max',
+    early_stopping = EarlyStopping(monitor='val_jacard', min_delta=0, verbose=1, patience=18, mode='max',
                                    restore_best_weights=True)
     csv_logger = CSVLogger('{}/{}_training.csv'.format(LOG_PATH, EXPERIMENT_NAME))
 
@@ -247,7 +266,7 @@ if (unet_or_srunet ==0 or unet_or_srunet == 1):
 
     #Train model on dataset
     model.fit_generator(generator=training_generator,
-                        validation_data=validation_generator,callbacks=[ie, checkpointer, reduce_lr, csv_logger, early_stopping],
+                        validation_data=validation_generator,callbacks=[checkpointer, reduce_lr, csv_logger, early_stopping], # ie
                     shuffle=True,
                     verbose = 2,epochs = epochs, steps_per_epoch= (len(x_train)*2) // batch_size)
 
@@ -273,7 +292,7 @@ elif (unet_or_srunet ==2):
                                    save_best_only=True)
     reduce_lr = ReduceLROnPlateau(monitor='val_jacard', factor=0.1, patience=5, verbose=1, min_lr=1e-8,
                                   mode='max')  # new_lr = lr * factor
-    early_stopping = EarlyStopping(monitor='val_jacard', min_delta=0, verbose=1, patience=8, mode='max',
+    early_stopping = EarlyStopping(monitor='val_jacard', min_delta=0, verbose=1, patience=15, mode='max',
                                    restore_best_weights=True)
     csv_logger = CSVLogger('{}/{}_training.csv'.format(LOG_PATH, EXPERIMENT_NAME))
     ie = classes.IntervalEvaluation_cascaded(EXPERIMENT_NAME, LOG_PATH, interval, unet_or_srunet,unet_main,
@@ -300,17 +319,14 @@ print("--- Time taken to train : %s hours ---" % ((end_time - start_time)//3600)
 
 
 
-
-
 # %%
 # Evaluate trained model using Jaccard and Dice metric
-
-# model = None
-# model = load_model(weights_path, compile=False)
-# yp = model.predict(x=x_test, batch_size=16, verbose=1)
-# #Round off boolean masks
-# yp = np.round(yp,0)
-# yp.shape
+#model = None
+#model = load_model(weights_path, compile=False)
+#yp = model.predict(x=x_test, batch_size=16, verbose=1)
+#Round off boolean masks
+#yp = np.round(yp,0)
+#yp.shape
 #
 # # %%
 # y_test.shape, yp.shape

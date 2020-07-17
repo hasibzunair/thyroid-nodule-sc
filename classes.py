@@ -449,7 +449,11 @@ class DataGenerator_Augment(keras.utils.Sequence):
         
         X = np.concatenate( (X, X_values_augmented), axis = 0)
         y = np.concatenate( (y, Y_values_augmented), axis = 0)
-    
+        
+        # Normalize data to [0-1]
+        X = X.astype('float32')
+        X /= 255
+        
         return X, y
     
     

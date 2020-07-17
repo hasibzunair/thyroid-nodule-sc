@@ -7,7 +7,7 @@
 # SBATCH --gres=gpu:1 
 
 #SBATCH --ntasks-per-node=8  
-#SBATCH --time=00-16:00 
+#SBATCH --time=00-10:00 
 #SBATCH --output=./logs/log.out
 
 # Load CUDA
