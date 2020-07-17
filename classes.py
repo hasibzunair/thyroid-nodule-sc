@@ -172,7 +172,7 @@ class IntervalEvaluation(Callback):
 				# roc_auc_val = auc(fpr, tpr)
 
 				operation_point, _, _, accuracy, specificity, sensitivity, dice, jaccard = data_utils.get_operating_points(
-					self.y_train.flatten(), X_train.flatten())
+					self.y_train.flatten(), self.X_train.flatten())
 
 				print(
 					"\nIn: Training Operating Point:{:.4f}, Accuracy :{:.4f}, Sensitivity:{:.4f}, Specificity: {:.4f}, Dice: {:.4f}, Jaccard: {:.4f}".format(
