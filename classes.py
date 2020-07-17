@@ -528,17 +528,18 @@ class DataGenerator_Augment(keras.utils.Sequence):
         # Generate data
         X = self.Xdata[indexes]
         y = self.Ydata[indexes]
-        
+
         seq = iaa.Sequential([
-            iaa.Fliplr(0.5), # Flip Y-axis
-            #iaa.TranslateX(px=(-20, 20)), #Translate along X axis by 20-20 pixels
-            #iaa.TranslateY(px=(-20, 20)), # Trasnlate Y
-            iaa.Rotate((-20, 20)), # Rotate
-            #iaa.ScaleX((0.5, 1.5)), # Along width 50%-150% of size
-            #iaa.ScaleY((0.5, 1.5)), # Along height
-            #iaa.Pepper(0.1), # Replace 10% of pixel with blackish colors
-            #iaa.Salt(0.1), # Whiteish colors
-            iaa.GaussianBlur(sigma=(0, 3.0))], random_order=True)
+            iaa.Fliplr(0.5),  # Flip Y-axis
+            iaa.TranslateX(px=(-20, 20)),  # Translate along X axis by 20-20 pixels
+            iaa.TranslateY(px=(-20, 20)),  # Trasnlate Y
+            iaa.Rotate((-20, 20))  # Rotate
+            # iaa.ScaleX((0.5, 1.5)), # Along width 50%-150% of size
+            # iaa.ScaleY((0.5, 1.5)), # Along height
+            # iaa.Pepper(0.1), # Replace 10% of pixel with blackish colors
+            # iaa.Salt(0.1), # Whiteish colors
+            # iaa.GaussianBlur(sigma=(0, 3.0))
+            ], random_order=True)
 
         counter = 0
         RESIZE_DIM = X.shape[1]
@@ -575,8 +576,8 @@ class DataGenerator_Augment(keras.utils.Sequence):
         y = np.concatenate( (y, Y_values_augmented), axis = 0)
         
         # Normalize data to [0-1]
-        X = X.astype('float32')
-        X /= 255
+        # X = X.astype('float32')
+        # X /= 255
     
         return X, y
     

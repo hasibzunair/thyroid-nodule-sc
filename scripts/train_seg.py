@@ -42,13 +42,13 @@ import metrics
 # Name data and config types
 DATASET_NAME = "data0" # name of the npz file
 SRUNET_DATA = "data0_unet_data_augment" # SRUNET data path
-CFG_NAME = "SRUNET_bce" # name of the architecture/configuration for segmentation model
+CFG_NAME = "SRUNET_efficient_net_focal_augment" # name of the architecture/configuration for segmentation model
 TRAINED_SRNET = "data0_data0_SRNET_with_augmented_data_[6, 10, 12, 16, 20]" # Path of SR-Unet weight 
 
 epoch_list = [10, 12, 16, 20]
 unet_or_srunet = 1 #0 for Unet, 1 for SRNET, #2 cascaded
 save_inter_layers_flag = 0
-augmentation_flag = 0
+augmentation_flag = 1
 ## This part is to load best predictions as validation set for SRUNET and used all training set for training
 #previously 20% of training was used for validation
 load_predictions_from_best_model = 1
@@ -56,7 +56,7 @@ best_model = 'data0_unet_efb0'
 
 
 # Configs for custom encoder
-encoder_flag = 0 # Set 1 to use custom encoder in Unet
+encoder_flag = 1 # Set 1 to use custom encoder in Unet
 backbone_name = 'efficientnetb3'
 encoder_weights = "imagenet"
     
@@ -77,9 +77,9 @@ TRAINED_SRUNET_PATH = os.path.join(ROOT_DIR, "logs", TRAINED_SRNET)
 # %%
 # Train
 lr = 0.0001 # 0.0001
-batch_size = 16
+batch_size = 8
 epochs = 300
-interval = 2 #10 #show correct dice and log it after every ? epochs
+interval = 10 #10 #show correct dice and log it after every ? epochs
 optim = 'adam' #keras.optimizers.Adam(lr)
 loss_func = 'binary_crossentropy'#l.dice_coef_loss
 
@@ -94,7 +94,7 @@ focal_loss = sm.losses.BinaryFocalLoss()
 total_loss = (0.5 * focal_loss) + (1 * jacard_loss)
 
 # Comment this line to not use custom loss, use what is defined at the top
-#loss_func = total_loss
+loss_func = focal_loss
 ################################################
 
 
