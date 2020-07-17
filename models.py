@@ -178,3 +178,23 @@ def unet_backbone(backbone, input_size, encoder_weights=None):
     model.compile(optimizer = optim, loss = loss_func, metrics = [M.jacard, M.dice_coef])
     
     return model
+
+
+def SRUNET_backbone(backbone, input_size, encoder_weights=None):
+    base_model = sm.Unet(backbone_name=backbone, input_shape=(input_size[0], input_size[1], 3), classes=1,
+                         activation='sigmoid', encoder_weights=encoder_weights)
+
+    inp = Input(shape=(256, 256, 1))
+    l1 = Conv2D(3, (1, 1))(inp)  # map N channels data to 3 channels
+    out = base_model(l1)
+    model = Model(inputs=[inp], outputs=[out])
+
+    # # Compile model with optim and loss
+    # optim = 'adam'
+    #
+    # # If bin seg, use bce loss
+    # loss_func = 'binary_crossentropy'
+    #
+    # model.compile(optimizer=optim, loss=loss_func, metrics=[M.jacard, M.dice_coef])
+
+    return model

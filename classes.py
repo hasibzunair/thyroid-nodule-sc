@@ -53,15 +53,29 @@ class IntervalEvaluation(Callback):
 		self.X_train, self.y_train = training_data
 
 	def on_train_begin(self, logs={}):
+		self.train_accuracy_in = []
+		self.train_sensitivity_in = []
+		self.train_specificity_in = []
+		self.train_dice_in = []
+		self.train_jaccard_in = []
+
 		self.train_accuracy = []
 		self.train_sensitivity = []
 		self.train_specificity = []
 		self.train_dice = []
+		self.train_jaccard = []
+
+		self.val_accuracy_in = []
+		self.val_sensitivity_in = []
+		self.val_specificity_in = []
+		self.val_dice_in = []
+		self.val_jaccard_in = []
 
 		self.val_accuracy = []
 		self.val_sensitivity = []
 		self.val_specificity = []
 		self.val_dice = []
+		self.val_jaccard = []
 
 		self.epochz = []
 
@@ -83,8 +97,8 @@ class IntervalEvaluation(Callback):
 			os.mkdir(figure_path)
 
 		# save 5 training and 5 Validation at each epoch
-		data_utils.saveResultasPlot(figure_path, epoch, self.X_train, self.y_train, y_pred_train, 'Training', 5)
-		data_utils.saveResultasPlot(figure_path, epoch, self.X_val, self.y_val, y_pred_val, 'Validation', 5)
+		data_utils.saveResultasPlot(self.unet_or_srunet, figure_path, epoch, self.X_train, self.y_train, y_pred_train, 'Training', 5)
+		data_utils.saveResultasPlot(self.unet_or_srunet, figure_path, epoch, self.X_val, self.y_val, y_pred_val, 'Validation', 5)
 
 		if (self.unet_or_srunet == 0):
 			if epoch % self.interval == 0:
@@ -95,12 +109,12 @@ class IntervalEvaluation(Callback):
 				# fpr, tpr, _ = roc_curve(self.y_val.flatten()>0.5, y_pred_val.flatten())
 				# roc_auc_val = auc(fpr, tpr)
 
-				operation_point, _, _, accuracy, specificity, sensitivity, dice = data_utils.get_operating_points(
+				operation_point, _, _, accuracy, specificity, sensitivity, dice, jaccard = data_utils.get_operating_points(
 					self.y_train.flatten(), y_pred_train.flatten())
 
 				print(
-					"\nTraining Operating Point:{:.4f}, Accuracy :{:.4f}, Sensitivity:{:.4f}, Specificity: {:.4f}, Dice: {:.4f}".format(
-						operation_point, accuracy, sensitivity, specificity, dice))
+					"\nTraining Operating Point:{:.4f}, Accuracy :{:.4f}, Sensitivity:{:.4f}, Specificity: {:.4f}, Dice: {:.4f}, Jaccard: {:.4f}".format(
+						operation_point, accuracy, sensitivity, specificity, dice, jaccard))
 
 				# self.train_operating_point.append(operation_point)
 				# self.train_aucs.append(roc_auc_train)
@@ -110,14 +124,15 @@ class IntervalEvaluation(Callback):
 				self.train_sensitivity.append(sensitivity)
 				self.train_specificity.append(specificity)
 				self.train_dice.append(dice)
+				self.train_jaccard.append(jaccard)
 
-				operation_point, _, _, accuracy, specificity, sensitivity, dice = data_utils.use_operating_points(
+				operation_point, _, _, accuracy, specificity, sensitivity, dice, jaccard = data_utils.use_operating_points(
 					operation_point,
 					self.y_val.flatten(), y_pred_val.flatten())
 
 				print(
-					"Validation Operating Point:{:.4f}, Accuracy :{:.4f}, Sensitivity:{:.4f}, Specificity: {:.4f}, Dice: {:.4f}\n".format(
-						operation_point, accuracy, sensitivity, specificity, dice))
+					"Validation Operating Point:{:.4f}, Accuracy :{:.4f}, Sensitivity:{:.4f}, Specificity: {:.4f}, Dice: {:.4f}, Jaccard: {:.4f}\n".format(
+						operation_point, accuracy, sensitivity, specificity, dice, jaccard))
 
 				# Can be used later for drawing plots
 				# self.val_operating_point.append(operation_point)
@@ -126,6 +141,8 @@ class IntervalEvaluation(Callback):
 				self.val_sensitivity.append(sensitivity)
 				self.val_specificity.append(specificity)
 				self.val_dice.append(dice)
+				self.val_jaccard.append(jaccard)
+
 
 				# np.savez(os.path.join(self.logging_dir, self.model_name, 'val_metrics'),
 				#          name1=self.val_accuracy,
@@ -140,10 +157,110 @@ class IntervalEvaluation(Callback):
 				# save as csv file
 				df = pandas.DataFrame(data={"epoch": self.epochz, "train_accuracy": self.train_accuracy,
 											"train_sensitivity": self.train_sensitivity,
-											"train_specificity": self.train_specificity, "train_dice": self.train_dice,
+											"train_specificity": self.train_specificity, "train_dice": self.train_dice,"train_jaccard": self.train_jaccard,
 											"val_accuracy": self.val_accuracy, "val_sensitivity": self.val_sensitivity,
-											"val_specificity": self.val_specificity, "val_dice": self.val_dice})
+											"val_specificity": self.val_specificity, "val_dice": self.val_dice, "val_jaccard": self.val_jaccard})
 				df.to_csv(os.path.join(self.logging_dir, 'log2.csv'), sep=',', index=False)
+			if (self.unet_or_srunet == 1):
+				if epoch % self.interval == 0:
+					# For finding AUC
+					# fpr, tpr, _ = roc_curve(self.y_train.flatten()>0.5, y_pred_train.flatten())
+					# roc_auc_train = auc(fpr, tpr)
+					#
+					# fpr, tpr, _ = roc_curve(self.y_val.flatten()>0.5, y_pred_val.flatten())
+					# roc_auc_val = auc(fpr, tpr)
+
+					operation_point, _, _, accuracy, specificity, sensitivity, dice, jaccard = data_utils.get_operating_points(
+						self.y_train.flatten(), X_train.flatten())
+
+					print(
+						"\nIn: Training Operating Point:{:.4f}, Accuracy :{:.4f}, Sensitivity:{:.4f}, Specificity: {:.4f}, Dice: {:.4f}, Jaccard: {:.4f}".format(
+							operation_point, accuracy, sensitivity, specificity, dice, jaccard))
+
+					self.train_accuracy_in.append(accuracy)
+					self.train_sensitivity_in.append(sensitivity)
+					self.train_specificity_in.append(specificity)
+					self.train_dice_in.append(dice)
+					self.train_jaccard_in.append(jaccard)
+
+
+					operation_point, _, _, accuracy, specificity, sensitivity, dice, jaccard = data_utils.get_operating_points(
+						self.y_train.flatten(), y_pred_train.flatten())
+
+
+					print(
+						"Out: Training Operating Point:{:.4f}, Accuracy :{:.4f}, Sensitivity:{:.4f}, Specificity: {:.4f}, Dice: {:.4f}, Jaccard: {:.4f}".format(
+							operation_point, accuracy, sensitivity, specificity, dice, jaccard))
+
+					# self.train_operating_point.append(operation_point)
+					# self.train_aucs.append(roc_auc_train)
+					self.epochz.append(epoch)
+
+					self.train_accuracy.append(accuracy)
+					self.train_sensitivity.append(sensitivity)
+					self.train_specificity.append(specificity)
+					self.train_dice.append(dice)
+					self.train_jaccard.append(jaccard)
+
+					operation_point, _, _, accuracy, specificity, sensitivity, dice, jaccard = data_utils.use_operating_points(
+						operation_point,
+						self.y_val.flatten(), X_val.flatten())
+
+					print(
+						"\nIn: Validation Operating Point:{:.4f}, Accuracy :{:.4f}, Sensitivity:{:.4f}, Specificity: {:.4f}, Dice: {:.4f}, Jaccard: {:.4f}".format(
+							operation_point, accuracy, sensitivity, specificity, dice, jaccard))
+
+					self.val_accuracy_in.append(accuracy)
+					self.val_sensitivity_in.append(sensitivity)
+					self.val_specificity_in.append(specificity)
+					self.val_dice_in.append(dice)
+					self.val_jaccard_in.append(jaccard)
+
+					operation_point, _, _, accuracy, specificity, sensitivity, dice, jaccard = data_utils.use_operating_points(
+						operation_point,
+						self.y_val.flatten(), y_pred_val.flatten())
+
+					print(
+						"Out: Validation Operating Point:{:.4f}, Accuracy :{:.4f}, Sensitivity:{:.4f}, Specificity: {:.4f}, Dice: {:.4f}, Jaccard: {:.4f}\n".format(
+							operation_point, accuracy, sensitivity, specificity, dice, jaccard))
+
+					# Can be used later for drawing plots
+					# self.val_operating_point.append(operation_point)
+					# self.val_aucs.append(roc_auc_val)
+					self.val_accuracy.append(accuracy)
+					self.val_sensitivity.append(sensitivity)
+					self.val_specificity.append(specificity)
+					self.val_dice.append(dice)
+					self.val_jaccard.append(jaccard)
+
+
+					# np.savez(os.path.join(self.logging_dir, self.model_name, 'val_metrics'),
+					#          name1=self.val_accuracy,
+					#          name2=self.val_sensitivity,
+					#          name3=self.val_specificity, name4=self.val_dice)
+					#
+					# np.savez(os.path.join(self.logging_dir, self.model_name,'train_metrics'),
+					#          name1=self.train_accuracy,
+					#          name2=self.train_sensitivity,
+					#          name3=self.train_specificity, name4=self.train_dice)
+
+					# save as csv file
+					df = pandas.DataFrame(data={"epoch": self.epochz, "train_accuracy_in": self.train_accuracy_in,
+												"train_sensitivity_in": self.train_sensitivity_in,
+												"train_specificity_in": self.train_specificity_in,
+												"train_dice_in": self.train_dice_in,"train_jaccard_in": self.train_jaccard_in,
+												"val_accuracy_in": self.val_accuracy_in,
+												"val_sensitivity_in": self.val_sensitivity_in,
+												"val_specificity_in": self.val_specificity_in, "val_dice_in": self.val_dice_in,"val_jaccard_in": self.val_jaccard_in,
+												"train_accuracy": self.train_accuracy,
+												"train_sensitivity": self.train_sensitivity,
+												"train_specificity": self.train_specificity,
+												"train_dice": self.train_dice,"train_jaccard": self.train_jaccard,
+												"val_accuracy": self.val_accuracy,
+												"val_sensitivity": self.val_sensitivity,
+												"val_specificity": self.val_specificity, "val_dice": self.val_dice
+												})
+					df.to_csv(os.path.join(self.logging_dir, 'log2.csv'), sep=',', index=False)
 
 
 			# This part is for generating prediction from intermediate epochs
@@ -251,8 +368,8 @@ class IntervalEvaluation_cascaded(Callback):
 				self.y_train.flatten(), y_out_train.flatten())
 
 			print(
-				"\nOut: Training Operating Point:{:.4f}, Accuracy :{:.4f}, Sensitivity:{:.4f}, Specificity: {:.4f}, Dice: {:.4f}".format(
-					operation_point, accuracy, sensitivity, specificity, dice))
+				"\nOut: Training Operating Point:{:.4f}, Accuracy :{:.4f}, Sensitivity:{:.4f}, Specificity: {:.4f}, Dice: {:.4f}, Jaccard: {:.4f}".format(
+					operation_point, accuracy, sensitivity, specificity, dice, jaccard))
 
 			# self.train_operating_point.append(operation_point)
 			# self.train_aucs.append(roc_auc_train)
@@ -268,8 +385,8 @@ class IntervalEvaluation_cascaded(Callback):
 				self.y_val.flatten(), y_out_val.flatten())
 
 			print(
-				"Out: Validation Operating Point:{:.4f}, Accuracy :{:.4f}, Sensitivity:{:.4f}, Specificity: {:.4f}, Dice: {:.4f}\n".format(
-					operation_point, accuracy, sensitivity, specificity, dice))
+				"Out: Validation Operating Point:{:.4f}, Accuracy :{:.4f}, Sensitivity:{:.4f}, Specificity: {:.4f}, Dice: {:.4f}, Jaccard: {:.4f}\n".format(
+					operation_point, accuracy, sensitivity, specificity, dice, jaccard))
 
 			# Can be used later for drawing plots
 			# self.val_operating_point.append(operation_point)
@@ -453,9 +570,7 @@ class DataGenerator_Augment(keras.utils.Sequence):
         # Normalize data to [0-1]
         X = X.astype('float32')
         X /= 255
-        
+    
         return X, y
     
     
-
-

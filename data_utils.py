@@ -36,7 +36,7 @@ def saveCorruptionResults(figure_path, epoch, X, Y, filename, num = 5):
         X_temp = X[j]
         Y_temp = Y[j]
 
-        operation_point, _, _, accuracy, specificity, sensitivity, dice = get_operating_points(Y_temp.flatten(),
+        operation_point, _, _, accuracy, specificity, sensitivity, dice, jaccard = get_operating_points(Y_temp.flatten(),
                                                                                                X_temp.flatten())
 
         rows = 1
@@ -84,8 +84,8 @@ def saveCorruptionResults(figure_path, epoch, X, Y, filename, num = 5):
 
 
         plt.suptitle(
-            'Accuracy:{:.4f}, Sensitivity:{:.4f}, Specificity:{:.4f}, Dice:{:.4f}, Operating Point:{:.4f}'.format(
-                accuracy, sensitivity, specificity, dice, operation_point))
+            'Accuracy:{:.4f}, Sensitivity:{:.4f}, Specificity:{:.4f}, Dice:{:.4f}, Jaccard:{:.4f}, OP:{:.4f}'.format(
+                accuracy, sensitivity, specificity, dice, jaccard, operation_point))
         plt.savefig(os.path.join(figure_path, "%s_epoch_%s_no_%s.png" % (filename, epoch, str(j))))
         plt.clf()
         plt.close()
@@ -169,16 +169,16 @@ def saveResultasPlot_cascade(figure_path, epoch, X, Y, Y_pred1,Y_pred2, filename
         ax.get_xaxis().set_ticklabels([])
         ax.set_xlabel('OutVsGt')
 
-        operation_point1, _, _, accuracy1, specificity1, sensitivity1, dice1 = get_operating_points(Y_temp.flatten(),
+        operation_point1, _, _, accuracy1, specificity1, sensitivity1, dice1, jaccard1 = get_operating_points(Y_temp.flatten(),
                                                                                                Y_pred_temp1.flatten())
 
-        operation_point2, _, _, accuracy2, specificity2, sensitivity2, dice2 = get_operating_points(Y_temp.flatten(),
+        operation_point2, _, _, accuracy2, specificity2, sensitivity2, dice2, jaccard2 = get_operating_points(Y_temp.flatten(),
                                                                                                Y_pred_temp2.flatten())
 
         plt.suptitle(
-            'Unet: Accuracy:{:.4f}, Sensitivity:{:.4f}, Specificity:{:.4f}, Dice:{:.4f}, Operating Point:{:.4f} '
-            '\nOut: Accuracy:{:.4f}, Sensitivity:{:.4f}, Specificity:{:.4f}, Dice:{:.4f}, Operating Point:{:.4f}'.format(
-                accuracy1, sensitivity1, specificity1, dice1, operation_point1, accuracy2, sensitivity2, specificity2, dice2, operation_point2))
+            'Unet: Accuracy:{:.4f}, Sensitivity:{:.4f}, Specificity:{:.4f}, Dice:{:.4f}, Jaccard{:.04}, OP:{:.4f} '
+            '\nOut: Accuracy:{:.4f}, Sensitivity:{:.4f}, Specificity:{:.4f}, Dice:{:.4f}, Jaccard{:.04},  OP:{:.4f}'.format(
+                accuracy1, sensitivity1, specificity1, dice1, jaccard1,operation_point1, accuracy2, sensitivity2, specificity2, dice2, jaccard2, operation_point2))
         plt.savefig(os.path.join(figure_path, "%s_epoch_%s_no_%s.png" % (filename, epoch, str(j))))
         plt.clf()
         plt.close()
@@ -186,7 +186,7 @@ def saveResultasPlot_cascade(figure_path, epoch, X, Y, Y_pred1,Y_pred2, filename
 
     return
 
-def saveResultasPlot(figure_path, epoch, X, Y, Y_pred, filename, num = 5):
+def saveResultasPlot(unet_or_srunet, figure_path, epoch, X, Y, Y_pred, filename, num = 5):
 
 
     randomize = np.arange(len(X))
@@ -209,7 +209,7 @@ def saveResultasPlot(figure_path, epoch, X, Y, Y_pred, filename, num = 5):
         Y_temp = Y[j]
         Y_pred_temp = Y_pred[j]
 
-        operation_point, _, _, accuracy, specificity, sensitivity, dice = get_operating_points(Y_temp.flatten(),
+        operation_point, _, _, accuracy, specificity, sensitivity, dice, jaccard = get_operating_points(Y_temp.flatten(),
                                                                                                Y_pred_temp.flatten())
 
         rows = 1
@@ -263,10 +263,19 @@ def saveResultasPlot(figure_path, epoch, X, Y, Y_pred, filename, num = 5):
         ax.get_xaxis().set_ticklabels([])
         ax.set_xlabel('Diff')
 
+        if unet_or_srunet == 1:
+            _, _, _, accuracy_in, specificity_in, sensitivity_in, dice_in, jaccard_in = get_operating_points(
+                Y_temp.flatten(),
+                X_temp.flatten())
+            plt.suptitle(
+                'In: Accuracy:{:.4f}, Sensitivity:{:.4f}, Specificity:{:.4f}, Dice:{:.4f}, Jaccard:{:.4f}, Operating Point:{:.4f}'
+                '\nOut: Accuracy:{:.4f}, Sensitivity:{:.4f}, Specificity:{:.4f}, Dice:{:.4f}, Jaccard:{:.4f}, Operating Point:{:.4f}'.format(
+                    accuracy_in, sensitivity_in, specificity_in, dice_in, jaccard_in, operation_point, accuracy, sensitivity, specificity, dice, jaccard, operation_point))
 
-        plt.suptitle(
-            'Accuracy:{:.4f}, Sensitivity:{:.4f}, Specificity:{:.4f}, Dice:{:.4f}, Operating Point:{:.4f}'.format(
-                accuracy, sensitivity, specificity, dice, operation_point))
+        else:
+            plt.suptitle(
+                'Accuracy:{:.4f}, Sensitivity:{:.4f}, Specificity:{:.4f}, Dice:{:.4f}, Jaccard:{:.4f}, Operating Point:{:.4f}'.format(
+                    accuracy, sensitivity, specificity, dice, jaccard, operation_point))
         plt.savefig(os.path.join(figure_path, "%s_epoch_%s_no_%s.png" % (filename, epoch, str(j))))
         plt.clf()
         plt.close()
@@ -313,6 +322,7 @@ def get_operating_points(y_gt, y_pr, threshold_step = 0.001):
     #manually setting OP as 0.5
     operation_point = 0.5
    #Find Accuracy, Specificity and Sensitivity
+    y_gt >= 0.5
     y_temp = y_pr >= operation_point
     TP, FP, TN, FN = perf_measure(y_gt, y_temp)
     accuracy = (TP + TN)/(TP+FP+TN+FN)
@@ -322,8 +332,10 @@ def get_operating_points(y_gt, y_pr, threshold_step = 0.001):
     specificity = ((1-fpr_tempp))
     sensitivity = (tpr_tempp)
     dice = (2*TP)/((2*TP)+FP+FN)
+    jaccard = (TP/(TP + FP + FN))
 
-    return operation_point, fpr_tempp, tpr_tempp, accuracy,specificity, sensitivity, dice
+
+    return operation_point, fpr_tempp, tpr_tempp, accuracy,specificity, sensitivity, dice, jaccard
 
 
 def use_operating_points(operation_point, y_gt, y_pr, threshold_step = 0.001):
@@ -347,6 +359,7 @@ def use_operating_points(operation_point, y_gt, y_pr, threshold_step = 0.001):
     # avg_auc = (roc_auc)
 
     #Find Accuracy, Specificity and Sensitivity
+    y_gt >= 0.5
     y_temp = y_pr >= operation_point
     TP, FP, TN, FN = perf_measure(y_gt, y_temp)
     accuracy = (TP + TN)/(TP+FP+TN+FN)
@@ -356,8 +369,9 @@ def use_operating_points(operation_point, y_gt, y_pr, threshold_step = 0.001):
     specificity = ((1-fpr_tempp))
     sensitivity = (tpr_tempp)
     dice = (2*TP)/((2*TP)+FP+FN)
+    jaccard = (TP / (TP + FP + FN))
 
-    return operation_point, fpr_tempp, tpr_tempp, accuracy,specificity, sensitivity, dice
+    return operation_point, fpr_tempp, tpr_tempp, accuracy,specificity, sensitivity, dice, jaccard
 
 
 # %%

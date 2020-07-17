@@ -14,7 +14,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 import time
 from tqdm import tqdm
-import keras
 from keras.callbacks import ModelCheckpoint, CSVLogger, EarlyStopping, ReduceLROnPlateau
 from keras.layers import Input
 from keras.models import Model
@@ -23,6 +22,7 @@ from keras import callbacks
 from keras import backend as K
 from sklearn.model_selection import train_test_split
 from sklearn.model_selection import StratifiedKFold
+import efficientnet.tfkeras
 from tensorflow.keras.models import load_model
 import tensorflow as tf
 
@@ -30,7 +30,6 @@ import tensorflow as tf
 import sys
 sys.path.insert(0,"..") 
 
-import segmentation_models as sm
 import data_utils
 import classes
 import models as M
@@ -48,6 +47,11 @@ TRAINED_SRNET = "data0_data0_SRNET_with_augmented_data_[6, 10, 12, 16, 20]" # Pa
 epoch_list = [6, 10, 12, 16, 20]
 unet_or_srunet = 0 #0 for Unet, 1 for SRNET, #2 cascaded
 
+## This part is to load best predictions as validation set for SRUNET and used all training set for training
+#previously 20% of training was used for validation
+load_predictions_from_best_model = 1
+best_model = 'data0_unet_efb0'
+
 
 # Configs for custom encoder
 encoder_flag = 1 # Set 1 to use custom encoder in Unet
@@ -56,8 +60,8 @@ encoder_weights = "imagenet"
     
     
 ROOT_DIR = os.path.abspath("../")
-#DATASET_FOLDER = "npy_data"
-DATASET_FOLDER = "/home/hasib/scratch/npy_data" # use this when on server
+DATASET_FOLDER = "npy_data"
+#DATASET_FOLDER = "/home/hasib/scratch/npy_data" # use this when on server
 DATASET_PATH = os.path.join(ROOT_DIR, "datasets", DATASET_FOLDER)
 SRUNET_DATA_PATH = os.path.join(ROOT_DIR, "logs", SRUNET_DATA, "sr_unetdata")
 
@@ -71,11 +75,12 @@ TRAINED_SRUNET_PATH = os.path.join(ROOT_DIR, "logs", TRAINED_SRNET)
 # %%
 # Train
 lr = 0.0001 # 0.0001
-batch_size = 16  # 16 for unet
+batch_size = 16
 epochs = 300
 interval = 10 #show correct dice and log it after every ? epochs
 optim = 'adam' #keras.optimizers.Adam(lr)
 loss_func = l.dice_coef_loss
+
 
 # Define custom loss
 ################################################
@@ -128,6 +133,28 @@ if (unet_or_srunet == 0 or unet_or_srunet ==2):
 
 
 elif unet_or_srunet == 1: #for SRNET
+
+    #This part loads the same examples used as validaiton and perfroms prediction using the best trained UNET,
+    #this is then used for validating the use of SRUNET.
+    if load_predictions_from_best_model == 1:
+        data = np.load(DATASET_PATH + '/{}.npz'.format(DATASET_NAME))
+        train_data = data['name1']
+        train_labels = data['name2']
+        train_data = np.expand_dims(train_data, axis=-1)
+        train_labels = np.minimum(train_labels, 1)
+        train_labels = np.expand_dims(train_labels, axis=-1)
+
+        x_test = train_data[2915:]
+        y_test = train_labels[2915:]
+
+        weights_path = "../logs/{}/{}.h5".format(best_model, best_model)
+        model = None
+        model = load_model(weights_path, compile=False)
+        x_test = model.predict(x=x_test, batch_size=16, verbose=1)
+
+
+
+
     for indx in range(len(epoch_list)):
 
         data = np.load(SRUNET_DATA_PATH + '/train_pred_%s.npz'%(epoch_list[indx]))
@@ -135,21 +162,33 @@ elif unet_or_srunet == 1: #for SRNET
         train_data = (data['name1'])
         train_labels = (data['name2'])
 
-        split = 2332 #80% of the data as training and rest as validation. This is different than unet because we are only using training set for SRUNET
+        if load_predictions_from_best_model == 0:
+            split = 2332 #80% of the data as training and rest as validation. This is different than unet because we are only using training set for SRUNET
 
-        if indx == 0:
-            x_train = train_data[:split] #Splitting is done per epoch output to make sure cases from validation are not seen during training
-            x_test = train_data[split:]
-            y_train = train_labels[:split]
-            y_test = train_labels[split:]
+            if indx == 0:
+                x_train = train_data[:split] #Splitting is done per epoch output to make sure cases from validation are not seen during training
+                x_test = train_data[split:]
+                y_train = train_labels[:split]
+                y_test = train_labels[split:]
+            else:
+                x_train = np.concatenate((x_train, train_data[:split]))
+                x_test = np.concatenate((x_test, train_data[split:]))
+
+                y_train = np.concatenate((y_train, train_labels[:split]))
+                y_test = np.concatenate((y_test, train_labels[split:]))
+
+            del data, train_data, train_labels
+
+        #All data used as training and validation is basically the prediction from best UNET
         else:
-            x_train = np.concatenate((x_train, train_data[:split]))
-            x_test = np.concatenate((x_test, train_data[split:]))
+            if indx == 0:
+                x_train = train_data
+                y_train = train_labels
+            else:
+                x_train = np.concatenate((x_train, train_data))
+                y_train = np.concatenate((y_train, train_labels))
 
-            y_train = np.concatenate((y_train, train_labels[:split]))
-            y_test = np.concatenate((y_test, train_labels[split:]))
-
-        del data, train_data, train_labels
+            del data, train_data, train_labels
 
 print("Train and validate on -------> ", x_train.shape, x_test.shape, y_train.shape, y_test.shape)
 
@@ -162,14 +201,14 @@ print("Y Val- max: %s, min: %s" % (np.max(y_test), np.min(y_test)))
 
 # %%
 # Build standard U-Net model
-if unet_or_srunet == 0:
+if (unet_or_srunet == 0 and encoder_flag == 0):
     print("Segmentation model")
     # Vanilla U-Net
     model = M.unet(input_size = (train_data.shape[1], train_data.shape[2], train_data.shape[-1]))
     # Compiling
     model.compile(optimizer=optim, loss=loss_func, metrics=[metrics.jacard, metrics.dice_coef])
 
-elif unet_or_srunet == 1:
+if (unet_or_srunet == 1 and encoder_flag == 0):
     print("Shape regularization model")
     model = M.SRUNET(input_size = (x_train.shape[1], x_train.shape[2], x_train.shape[-1]))
 
@@ -177,7 +216,7 @@ elif unet_or_srunet == 1:
     model.compile(optimizer=optim, loss=loss_func, metrics=[metrics.jacard, metrics.dice_coef])
 
 
-elif unet_or_srunet == 2:
+if unet_or_srunet == 2:
     print("Cascaded Network")
 
     unet_main = M.unet(input_size=(train_data.shape[1], train_data.shape[2], train_data.shape[-1]))
@@ -222,14 +261,20 @@ elif unet_or_srunet == 2:
 
     model.compile(optimizer=optim, loss = custom_loss(unet_output, encoded, encoded_gt), metrics=[metrics.jacard, metrics.dice_coef])
     
-    
-    
 if unet_or_srunet == 0 and encoder_flag == 1:
     
     print("Unet with custom encoder")
     # Build U-Net model with custom encoder
     model = M.unet_backbone(backbone=backbone_name, input_size = (train_data.shape[1], 
                 train_data.shape[2], train_data.shape[-1]), encoder_weights=encoder_weights)
+
+    # Compiling
+    model.compile(optimizer=optim, loss=loss_func, metrics=[metrics.jacard, metrics.dice_coef])
+
+
+if (unet_or_srunet == 1 and encoder_flag == 1):
+    print("Shape regularization model")
+    model = M.SRUNET_backbone(backbone=backbone_name, input_size = ((x_train.shape[1], x_train.shape[2], x_train.shape[-1])), encoder_weights=encoder_weights)
 
     # Compiling
     model.compile(optimizer=optim, loss=loss_func, metrics=[metrics.jacard, metrics.dice_coef])
@@ -292,7 +337,7 @@ elif (unet_or_srunet ==2):
                                    save_best_only=True)
     reduce_lr = ReduceLROnPlateau(monitor='val_jacard', factor=0.1, patience=5, verbose=1, min_lr=1e-8,
                                   mode='max')  # new_lr = lr * factor
-    early_stopping = EarlyStopping(monitor='val_jacard', min_delta=0, verbose=1, patience=15, mode='max',
+    early_stopping = EarlyStopping(monitor='val_jacard', min_delta=0, verbose=1, patience=8, mode='max',
                                    restore_best_weights=True)
     csv_logger = CSVLogger('{}/{}_training.csv'.format(LOG_PATH, EXPERIMENT_NAME))
     ie = classes.IntervalEvaluation_cascaded(EXPERIMENT_NAME, LOG_PATH, interval, unet_or_srunet,unet_main,
@@ -319,14 +364,17 @@ print("--- Time taken to train : %s hours ---" % ((end_time - start_time)//3600)
 
 
 
+
+
 # %%
 # Evaluate trained model using Jaccard and Dice metric
-#model = None
-#model = load_model(weights_path, compile=False)
-#yp = model.predict(x=x_test, batch_size=16, verbose=1)
-#Round off boolean masks
-#yp = np.round(yp,0)
-#yp.shape
+
+# model = None
+# model = load_model(weights_path, compile=False)
+# yp = model.predict(x=x_test, batch_size=16, verbose=1)
+# #Round off boolean masks
+# yp = np.round(yp,0)
+# yp.shape
 #
 # # %%
 # y_test.shape, yp.shape
