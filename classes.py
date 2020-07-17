@@ -42,12 +42,13 @@ import logging as l
 
 
 class IntervalEvaluation(Callback):
-	def __init__(self, model_name, logging_dir, interval, unet_or_srunet,validation_data=(), training_data=()):
+	def __init__(self, save_inter_layers_flag, model_name, logging_dir, interval, unet_or_srunet,validation_data=(), training_data=()):
 		super(Callback, self).__init__()
 		self.interval = interval
 		self.model_name = model_name
 		self.logging_dir = logging_dir
 		self.unet_or_srunet = unet_or_srunet
+		self.save_inter_layers_flag = save_inter_layers_flag
 
 		self.X_val, self.y_val = validation_data
 		self.X_train, self.y_train = training_data
@@ -161,134 +162,133 @@ class IntervalEvaluation(Callback):
 											"val_accuracy": self.val_accuracy, "val_sensitivity": self.val_sensitivity,
 											"val_specificity": self.val_specificity, "val_dice": self.val_dice, "val_jaccard": self.val_jaccard})
 				df.to_csv(os.path.join(self.logging_dir, 'log2.csv'), sep=',', index=False)
-			if (self.unet_or_srunet == 1):
-				if epoch % self.interval == 0:
-					# For finding AUC
-					# fpr, tpr, _ = roc_curve(self.y_train.flatten()>0.5, y_pred_train.flatten())
-					# roc_auc_train = auc(fpr, tpr)
-					#
-					# fpr, tpr, _ = roc_curve(self.y_val.flatten()>0.5, y_pred_val.flatten())
-					# roc_auc_val = auc(fpr, tpr)
+		if (self.unet_or_srunet == 1):
+			if epoch % self.interval == 0:
+				# For finding AUC
+				# fpr, tpr, _ = roc_curve(self.y_train.flatten()>0.5, y_pred_train.flatten())
+				# roc_auc_train = auc(fpr, tpr)
+				#
+				# fpr, tpr, _ = roc_curve(self.y_val.flatten()>0.5, y_pred_val.flatten())
+				# roc_auc_val = auc(fpr, tpr)
 
-					operation_point, _, _, accuracy, specificity, sensitivity, dice, jaccard = data_utils.get_operating_points(
-						self.y_train.flatten(), X_train.flatten())
+				operation_point, _, _, accuracy, specificity, sensitivity, dice, jaccard = data_utils.get_operating_points(
+					self.y_train.flatten(), X_train.flatten())
 
-					print(
-						"\nIn: Training Operating Point:{:.4f}, Accuracy :{:.4f}, Sensitivity:{:.4f}, Specificity: {:.4f}, Dice: {:.4f}, Jaccard: {:.4f}".format(
-							operation_point, accuracy, sensitivity, specificity, dice, jaccard))
+				print(
+					"\nIn: Training Operating Point:{:.4f}, Accuracy :{:.4f}, Sensitivity:{:.4f}, Specificity: {:.4f}, Dice: {:.4f}, Jaccard: {:.4f}".format(
+						operation_point, accuracy, sensitivity, specificity, dice, jaccard))
 
-					self.train_accuracy_in.append(accuracy)
-					self.train_sensitivity_in.append(sensitivity)
-					self.train_specificity_in.append(specificity)
-					self.train_dice_in.append(dice)
-					self.train_jaccard_in.append(jaccard)
-
-
-					operation_point, _, _, accuracy, specificity, sensitivity, dice, jaccard = data_utils.get_operating_points(
-						self.y_train.flatten(), y_pred_train.flatten())
+				self.train_accuracy_in.append(accuracy)
+				self.train_sensitivity_in.append(sensitivity)
+				self.train_specificity_in.append(specificity)
+				self.train_dice_in.append(dice)
+				self.train_jaccard_in.append(jaccard)
 
 
-					print(
-						"Out: Training Operating Point:{:.4f}, Accuracy :{:.4f}, Sensitivity:{:.4f}, Specificity: {:.4f}, Dice: {:.4f}, Jaccard: {:.4f}".format(
-							operation_point, accuracy, sensitivity, specificity, dice, jaccard))
-
-					# self.train_operating_point.append(operation_point)
-					# self.train_aucs.append(roc_auc_train)
-					self.epochz.append(epoch)
-
-					self.train_accuracy.append(accuracy)
-					self.train_sensitivity.append(sensitivity)
-					self.train_specificity.append(specificity)
-					self.train_dice.append(dice)
-					self.train_jaccard.append(jaccard)
-
-					operation_point, _, _, accuracy, specificity, sensitivity, dice, jaccard = data_utils.use_operating_points(
-						operation_point,
-						self.y_val.flatten(), X_val.flatten())
-
-					print(
-						"\nIn: Validation Operating Point:{:.4f}, Accuracy :{:.4f}, Sensitivity:{:.4f}, Specificity: {:.4f}, Dice: {:.4f}, Jaccard: {:.4f}".format(
-							operation_point, accuracy, sensitivity, specificity, dice, jaccard))
-
-					self.val_accuracy_in.append(accuracy)
-					self.val_sensitivity_in.append(sensitivity)
-					self.val_specificity_in.append(specificity)
-					self.val_dice_in.append(dice)
-					self.val_jaccard_in.append(jaccard)
-
-					operation_point, _, _, accuracy, specificity, sensitivity, dice, jaccard = data_utils.use_operating_points(
-						operation_point,
-						self.y_val.flatten(), y_pred_val.flatten())
-
-					print(
-						"Out: Validation Operating Point:{:.4f}, Accuracy :{:.4f}, Sensitivity:{:.4f}, Specificity: {:.4f}, Dice: {:.4f}, Jaccard: {:.4f}\n".format(
-							operation_point, accuracy, sensitivity, specificity, dice, jaccard))
-
-					# Can be used later for drawing plots
-					# self.val_operating_point.append(operation_point)
-					# self.val_aucs.append(roc_auc_val)
-					self.val_accuracy.append(accuracy)
-					self.val_sensitivity.append(sensitivity)
-					self.val_specificity.append(specificity)
-					self.val_dice.append(dice)
-					self.val_jaccard.append(jaccard)
+				operation_point, _, _, accuracy, specificity, sensitivity, dice, jaccard = data_utils.get_operating_points(
+					self.y_train.flatten(), y_pred_train.flatten())
 
 
-					# np.savez(os.path.join(self.logging_dir, self.model_name, 'val_metrics'),
-					#          name1=self.val_accuracy,
-					#          name2=self.val_sensitivity,
-					#          name3=self.val_specificity, name4=self.val_dice)
-					#
-					# np.savez(os.path.join(self.logging_dir, self.model_name,'train_metrics'),
-					#          name1=self.train_accuracy,
-					#          name2=self.train_sensitivity,
-					#          name3=self.train_specificity, name4=self.train_dice)
+				print(
+					"Out: Training Operating Point:{:.4f}, Accuracy :{:.4f}, Sensitivity:{:.4f}, Specificity: {:.4f}, Dice: {:.4f}, Jaccard: {:.4f}".format(
+						operation_point, accuracy, sensitivity, specificity, dice, jaccard))
 
-					# save as csv file
-					df = pandas.DataFrame(data={"epoch": self.epochz, "train_accuracy_in": self.train_accuracy_in,
-												"train_sensitivity_in": self.train_sensitivity_in,
-												"train_specificity_in": self.train_specificity_in,
-												"train_dice_in": self.train_dice_in,"train_jaccard_in": self.train_jaccard_in,
-												"val_accuracy_in": self.val_accuracy_in,
-												"val_sensitivity_in": self.val_sensitivity_in,
-												"val_specificity_in": self.val_specificity_in, "val_dice_in": self.val_dice_in,"val_jaccard_in": self.val_jaccard_in,
-												"train_accuracy": self.train_accuracy,
-												"train_sensitivity": self.train_sensitivity,
-												"train_specificity": self.train_specificity,
-												"train_dice": self.train_dice,"train_jaccard": self.train_jaccard,
-												"val_accuracy": self.val_accuracy,
-												"val_sensitivity": self.val_sensitivity,
-												"val_specificity": self.val_specificity, "val_dice": self.val_dice
-												})
-					df.to_csv(os.path.join(self.logging_dir, 'log2.csv'), sep=',', index=False)
+				# self.train_operating_point.append(operation_point)
+				# self.train_aucs.append(roc_auc_train)
+				self.epochz.append(epoch)
+
+				self.train_accuracy.append(accuracy)
+				self.train_sensitivity.append(sensitivity)
+				self.train_specificity.append(specificity)
+				self.train_dice.append(dice)
+				self.train_jaccard.append(jaccard)
+
+				operation_point, _, _, accuracy, specificity, sensitivity, dice, jaccard = data_utils.use_operating_points(
+					operation_point,
+					self.y_val.flatten(), X_val.flatten())
+
+				print(
+					"\nIn: Validation Operating Point:{:.4f}, Accuracy :{:.4f}, Sensitivity:{:.4f}, Specificity: {:.4f}, Dice: {:.4f}, Jaccard: {:.4f}".format(
+						operation_point, accuracy, sensitivity, specificity, dice, jaccard))
+
+				self.val_accuracy_in.append(accuracy)
+				self.val_sensitivity_in.append(sensitivity)
+				self.val_specificity_in.append(specificity)
+				self.val_dice_in.append(dice)
+				self.val_jaccard_in.append(jaccard)
+
+				operation_point, _, _, accuracy, specificity, sensitivity, dice, jaccard = data_utils.use_operating_points(
+					operation_point,
+					self.y_val.flatten(), y_pred_val.flatten())
+
+				print(
+					"Out: Validation Operating Point:{:.4f}, Accuracy :{:.4f}, Sensitivity:{:.4f}, Specificity: {:.4f}, Dice: {:.4f}, Jaccard: {:.4f}\n".format(
+						operation_point, accuracy, sensitivity, specificity, dice, jaccard))
+
+				# Can be used later for drawing plots
+				# self.val_operating_point.append(operation_point)
+				# self.val_aucs.append(roc_auc_val)
+				self.val_accuracy.append(accuracy)
+				self.val_sensitivity.append(sensitivity)
+				self.val_specificity.append(specificity)
+				self.val_dice.append(dice)
+				self.val_jaccard.append(jaccard)
 
 
-			# This part is for generating prediction from intermediate epochs
-			#save_at_epochs = [2,4,6,8,10,12,14,16,18,20]
-			save_at_epochs = [2,4] # Do this when generating data for SRunet is not needed
-            
-			if (np.sum((epoch) == np.transpose(save_at_epochs)) > 0):
+				# np.savez(os.path.join(self.logging_dir, self.model_name, 'val_metrics'),
+				#          name1=self.val_accuracy,
+				#          name2=self.val_sensitivity,
+				#          name3=self.val_specificity, name4=self.val_dice)
+				#
+				# np.savez(os.path.join(self.logging_dir, self.model_name,'train_metrics'),
+				#          name1=self.train_accuracy,
+				#          name2=self.train_sensitivity,
+				#          name3=self.train_specificity, name4=self.train_dice)
 
-				print('\nReached Epoch Number %s and saving intermediate epoch results...' % (
-					epoch))
+				# save as csv file
+				df = pandas.DataFrame(data={"epoch": self.epochz, "train_accuracy_in": self.train_accuracy_in,
+											"train_sensitivity_in": self.train_sensitivity_in,
+											"train_specificity_in": self.train_specificity_in,
+											"train_dice_in": self.train_dice_in,"train_jaccard_in": self.train_jaccard_in,
+											"val_accuracy_in": self.val_accuracy_in,
+											"val_sensitivity_in": self.val_sensitivity_in,
+											"val_specificity_in": self.val_specificity_in, "val_dice_in": self.val_dice_in,"val_jaccard_in": self.val_jaccard_in,
+											"train_accuracy": self.train_accuracy,
+											"train_sensitivity": self.train_sensitivity,
+											"train_specificity": self.train_specificity,
+											"train_dice": self.train_dice,"train_jaccard": self.train_jaccard,
+											"val_accuracy": self.val_accuracy,
+											"val_sensitivity": self.val_sensitivity,
+											"val_specificity": self.val_specificity, "val_dice": self.val_dice
+											})
+				df.to_csv(os.path.join(self.logging_dir, 'log2.csv'), sep=',', index=False)
 
-				# Save doing subplot
-				data_path = os.path.join(self.logging_dir, 'sr_unetdata')
-				if not os.path.isdir(data_path):
-					os.mkdir(data_path)
+			if self.save_inter_layers_flag == 1:
+				# This part is for generating prediction from intermediate epochs
+				save_at_epochs = [2,4,6,8,10,12,14,16,18,20]
 
-				np.savez(os.path.join(data_path, 'train_pred_' + str(epoch)),
-						 name1=y_pred_train,
-						 name2=self.y_train)
+				if (np.sum((epoch) == np.transpose(save_at_epochs)) > 0):
 
-				self.model.save(data_path + '/model_' + str(epoch) + '.h5')
+					print('\nReached Epoch Number %s and saving intermediate epoch results...' % (
+						epoch))
 
-				# sanity check plotting
-				data_path = os.path.join(data_path, 'figures')
-				if not os.path.isdir(data_path):
-					os.mkdir(data_path)
+					# Save doing subplot
+					data_path = os.path.join(self.logging_dir, 'sr_unetdata')
+					if not os.path.isdir(data_path):
+						os.mkdir(data_path)
 
-				data_utils.saveCorruptionResults(data_path, epoch, y_pred_train, self.y_train, 'Train', 5)
+					np.savez(os.path.join(data_path, 'train_pred_' + str(epoch)),
+							 name1=y_pred_train,
+							 name2=self.y_train)
+
+					self.model.save(data_path + '/model_' + str(epoch) + '.h5')
+
+					# sanity check plotting
+					data_path = os.path.join(data_path, 'figures')
+					if not os.path.isdir(data_path):
+						os.mkdir(data_path)
+
+					data_utils.saveCorruptionResults(data_path, epoch, y_pred_train, self.y_train, 'Train', 5)
 
 
 
