@@ -205,7 +205,7 @@ class IntervalEvaluation(Callback):
 
 				operation_point, _, _, accuracy, specificity, sensitivity, dice, jaccard = data_utils.use_operating_points(
 					operation_point,
-					self.y_val.flatten(), X_val.flatten())
+					self.y_val.flatten(), self.X_val.flatten())
 
 				print(
 					"\nIn: Validation Operating Point:{:.4f}, Accuracy :{:.4f}, Sensitivity:{:.4f}, Specificity: {:.4f}, Dice: {:.4f}, Jaccard: {:.4f}".format(
