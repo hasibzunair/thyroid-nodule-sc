@@ -610,7 +610,7 @@ class DataGenerator_Augment_cascaded(keras.utils.Sequence):
 		# Generate data
 		X, y = self.__data_generation(indexes)
 
-		return X, y_encoded, y
+		return X, y
 
 	def on_epoch_end(self):
 		'Updates indexes after each epoch'

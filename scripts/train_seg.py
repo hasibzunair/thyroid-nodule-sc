@@ -42,14 +42,14 @@ import metrics
 # Name data and config types
 DATASET_NAME = "data0" # name of the npz file
 SRUNET_DATA = "data0_unet_data_augment" # SRUNET data path
-CFG_NAME = "Cascaded_efb0_augmentation" # name of the architecture/configuration for segmentation model
+CFG_NAME = "Cascaded_efb0_no_augmentation" # name of the architecture/configuration for segmentation model
 TRAINED_SRNET = "data0_data0_SRNET_with_augmented_data_[6, 10, 12, 16, 20]" # Path of SR-Unet weight 
 
 epoch_list = [10, 12, 16, 20]
 unet_or_srunet = 2 #0 for Unet, 1 for SRNET, #2 cascaded
 save_inter_layers_flag = 0 #this is used for saving intermediate layer results (set to ) if training SRUNET is not required)
 
-augmentation_flag = 1
+augmentation_flag = 0
 ## This part is to load best predictions as validation set for SRUNET and used all training set for training
 #previously 20% of training was used for validation
 load_predictions_from_best_model = 1
@@ -361,7 +361,7 @@ elif (unet_or_srunet ==2):
                                    save_best_only=True)
     reduce_lr = ReduceLROnPlateau(monitor='val_jacard', factor=0.1, patience=5, verbose=1, min_lr=1e-8,
                                   mode='max')  # new_lr = lr * factor
-    early_stopping = EarlyStopping(monitor='val_jacard', min_delta=0, verbose=1, patience=8, mode='max',
+    early_stopping = EarlyStopping(monitor='val_jacard', min_delta=0, verbose=1, patience=20, mode='max',
                                    restore_best_weights=True)
     csv_logger = CSVLogger('{}/{}_training.csv'.format(LOG_PATH, EXPERIMENT_NAME))
     ie = classes.IntervalEvaluation_cascaded(EXPERIMENT_NAME, LOG_PATH, interval, unet_or_srunet,unet_main,
