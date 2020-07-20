@@ -44,7 +44,7 @@ import metrics
 # Name data and config types
 DATASET_NAME = "data0" # name of the npz file
 SRUNET_DATA = "data0_unet_data_augment" # SRUNET data path
-CFG_NAME = "Cascaded_efb3_loss_augmentation_8_adversarial_nadam" # name of the architecture/configuration for segmentation model
+CFG_NAME = "Cascaded_efb3_loss_augmentation_8_adversarial_nadam_different_AUG" # name of the architecture/configuration for segmentation model
 TRAINED_SRNET = "data0_data0_SRNET_with_augmented_data_[6, 10, 12, 16, 20]" # Path of SR-Unet weight 
 
 epoch_list = [10, 12, 16, 20]
@@ -80,7 +80,7 @@ TRAINED_SRUNET_PATH = os.path.join(ROOT_DIR, "logs", TRAINED_SRNET)
 # %%
 # Train
 lr = 0.0001 # 0.0001
-batch_size = 8
+batch_size = 16
 epochs = 300
 interval = 10 #10 #show correct dice and log it after every ? epochs
 optim = 'adam' #keras.optimizers.Adam(lr)
@@ -413,7 +413,7 @@ elif (unet_or_srunet ==2):
         model.fit_generator(generator=training_generator,
                             validation_data=([x_test, y_test_encoded],y_test),callbacks=[checkpointer, reduce_lr, csv_logger, early_stopping],
                         shuffle=True,
-                        verbose = 2,epochs = epochs, steps_per_epoch= (len(x_train)*2) // batch_size, workers = 0)
+                        verbose = 2,epochs = epochs, steps_per_epoch= (len(x_train)*1) // batch_size, workers = 0)
 
     else:
         model.fit([x_train, y_train_encoded], y_train,

@@ -626,11 +626,11 @@ class DataGenerator_Augment_cascaded(keras.utils.Sequence):
 
 		seq = iaa.Sequential([
 			iaa.Fliplr(0.5),  # Flip Y-axis
-			#iaa.TranslateX(px=(-20, 20)),  # Translate along X axis by 20-20 pixels
-			#iaa.TranslateY(px=(-20, 20)),  # Trasnlate Y
+			iaa.TranslateX(px=(-20, 20)),  # Translate along X axis by 20-20 pixels
+			iaa.TranslateY(px=(-20, 20)),  # Trasnlate Y
 			iaa.Rotate((-20, 20)),  # Rotate
-			# iaa.ScaleX((0.5, 1.5)), # Along width 50%-150% of size
-			# iaa.ScaleY((0.5, 1.5)), # Along height
+			iaa.ScaleX((0.5, 1.5)), # Along width 50%-150% of size
+			iaa.ScaleY((0.5, 1.5)), # Along height
 			# iaa.Pepper(0.1), # Replace 10% of pixel with blackish colors
 			# iaa.Salt(0.1), # Whiteish colors
 			iaa.GaussianBlur(sigma=(0, 3.0))
@@ -666,9 +666,10 @@ class DataGenerator_Augment_cascaded(keras.utils.Sequence):
 		X_values_augmented = np.asarray(X_values_augmented)
 		Y_values_augmented = np.asarray(Y_values_augmented)
 
-		X = np.concatenate((X, X_values_augmented), axis=0)
-		y = np.concatenate((y, Y_values_augmented), axis=0)
-
+		#X = np.concatenate((X, X_values_augmented), axis=0)
+		#y = np.concatenate((y, Y_values_augmented), axis=0)
+		X = X_values_augmented
+		y = Y_values_augmented
 		#print(np.shape(y))
 		y_encoded, _ = self.srunet.predict(x=y, batch_size=16, verbose=2)
 
