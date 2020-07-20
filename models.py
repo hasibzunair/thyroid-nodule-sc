@@ -169,13 +169,13 @@ def unet_backbone(backbone, input_size, encoder_weights=None):
     out = base_model(l1)
     model = Model(inputs=[inp], outputs=[out])
     
-    # Compile model with optim and loss
-    optim = 'adam' 
-    
-    # If bin seg, use bce loss
-    loss_func = 'binary_crossentropy'  
-    
-    model.compile(optimizer = optim, loss = loss_func, metrics = [M.jacard, M.dice_coef])
+    # # Compile model with optim and loss
+    # optim = 'adam'
+    #
+    # # If bin seg, use bce loss
+    # loss_func = 'binary_crossentropy'
+    #
+    # model.compile(optimizer = optim, loss = loss_func, metrics = [M.jacard, M.dice_coef])
     
     return model
 

@@ -42,7 +42,7 @@ import metrics
 # Name data and config types
 DATASET_NAME = "data0" # name of the npz file
 SRUNET_DATA = "data0_unet_data_augment" # SRUNET data path
-CFG_NAME = "Cascaded_efb3_augmentation_loss_6" # name of the architecture/configuration for segmentation model
+CFG_NAME = "Cascaded_efb3_augmentation_loss_2_metric_on_unet_secondtest" # name of the architecture/configuration for segmentation model
 TRAINED_SRNET = "data0_data0_SRNET_with_augmented_data_[6, 10, 12, 16, 20]" # Path of SR-Unet weight 
 
 epoch_list = [10, 12, 16, 20]
@@ -244,7 +244,7 @@ if unet_or_srunet == 2:
     inputs = Input(shape=(train_data.shape[1], train_data.shape[2], train_data.shape[-1]))
     unet_output = unet_main(inputs)
     encoded, output = srunet(unet_output)
-    model = Model(inputs=[inputs, encoded_gt], outputs=[output])
+    model = Model(inputs=[inputs, encoded_gt], outputs=[unet_output, output])
 
     optim = 'adam'
 
@@ -266,18 +266,18 @@ if unet_or_srunet == 2:
             # loss = tf.keras.backend.sqrt(0.5 * (metrics.mas(encoded_gt, encoded)) + (
             #     dice_loss(y_true, unet_output)))
 
-            # loss = metrics.mas(encoded_gt, encoded) + 10*(
-            #     dice_loss(y_true, unet_output)) #2
+            loss = metrics.mas(encoded_gt, encoded) + 10*(dice_loss(y_true, unet_output)) #2
 
             # loss = (metrics.mas(unet_output, y_pred) + a * (metrics.mas(encoded_gt, encoded)) + b * (
             #    metrics.mas(y_true, unet_output))) #3
 
             #loss = 1*metrics.mas(y_true, y_pred) + 1*(dice_loss(y_true, unet_output)) #4
 
-            #loss = 1 * dice_loss(y_true, y_pred) + 1 * (dice_loss(y_true, unet_output))  # 5
+            #loss = 0.5 * dice_loss(y_true, y_pred) + 1 * (dice_loss(y_true, unet_output))  # 5 This is giving 79% Jaccard
 
             #loss = 1 * dice_loss(y_true, y_pred)   # 6
 
+            #loss = metrics.mas(encoded_gt, encoded) + 1 * (dice_loss(y_true, unet_output))  # 7
 
             # loss = bce(y_true, y_pred) + (20*bce(y_true, unet_output))
 
@@ -373,11 +373,11 @@ elif (unet_or_srunet ==2):
     # %%
     # Callbacks
     weights_path = "{}/{}.h5".format(LOG_PATH, EXPERIMENT_NAME)
-    checkpointer = ModelCheckpoint(filepath=weights_path, verbose=1, monitor='val_jacard', mode='max',
+    checkpointer = ModelCheckpoint(filepath=weights_path, verbose=1, monitor='val_model_2_jacard', mode='max',
                                    save_best_only=True)
-    reduce_lr = ReduceLROnPlateau(monitor='val_jacard', factor=0.1, patience=5, verbose=1, min_lr=1e-8,
+    reduce_lr = ReduceLROnPlateau(monitor='val_model_2_jacard', factor=0.1, patience=5, verbose=1, min_lr=1e-8,
                                   mode='max')  # new_lr = lr * factor
-    early_stopping = EarlyStopping(monitor='val_jacard', min_delta=0, verbose=1, patience=30, mode='max',
+    early_stopping = EarlyStopping(monitor='val_model_2_jacard', min_delta=0, verbose=1, patience=30, mode='max',
                                    restore_best_weights=True)
     csv_logger = CSVLogger('{}/{}_training.csv'.format(LOG_PATH, EXPERIMENT_NAME))
     ie = classes.IntervalEvaluation_cascaded(EXPERIMENT_NAME, LOG_PATH, interval, unet_or_srunet,unet_main,
@@ -387,11 +387,11 @@ elif (unet_or_srunet ==2):
     if augmentation_flag == 1:
         #generators
         training_generator = classes.DataGenerator_Augment_cascaded(x_train, srunet, y_train, batch_size=batch_size, shuffle=True)
-        validation_generator = classes.DataGenerator_Augment_cascaded(x_test, srunet, y_test, batch_size=batch_size, shuffle=True)
+        #validation_generator = classes.DataGenerator_Augment_cascaded(x_test, srunet, y_test, batch_size=batch_size, shuffle=True)
 
         #Train model on dataset
         model.fit_generator(generator=training_generator,
-                            validation_data=validation_generator,callbacks=[checkpointer, reduce_lr, csv_logger, early_stopping],
+                            validation_data=([x_test, y_test_encoded],[y_test, y_test]),callbacks=[checkpointer, reduce_lr, csv_logger, early_stopping],
                         shuffle=True,
                         verbose = 2,epochs = epochs, steps_per_epoch= (len(x_train)*2) // batch_size)
 
@@ -406,7 +406,7 @@ elif (unet_or_srunet ==2):
 
     # %%
     # Log training history
-    data_utils.plot_graphs(model.history,LOG_PATH, EXPERIMENT_NAME)
+    data_utils.plot_graphs_cascade(model.history,LOG_PATH, EXPERIMENT_NAME)
 
 
 end_time = time.time()

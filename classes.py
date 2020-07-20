@@ -675,4 +675,7 @@ class DataGenerator_Augment_cascaded(keras.utils.Sequence):
 		# X = X.astype('float32')
 		# X /= 255
 		X = [X, y_encoded]
+
+		y = [y, y]#comment this out for normal cascade. This was to monitor the UNET results as well as shape regularization results
+
 		return X, y
