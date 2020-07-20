@@ -15,6 +15,7 @@ import numpy as np
 import time
 from tqdm import tqdm
 from keras.callbacks import ModelCheckpoint, CSVLogger, EarlyStopping, ReduceLROnPlateau
+import keras
 from keras.layers import Input
 from keras.models import Model
 from keras.utils import generic_utils
@@ -25,6 +26,7 @@ from sklearn.model_selection import StratifiedKFold
 import efficientnet.tfkeras
 from tensorflow.keras.models import load_model
 import tensorflow as tf
+from tensorflow.keras import layers
 
 # Go back one step to read module
 import sys
@@ -42,7 +44,7 @@ import metrics
 # Name data and config types
 DATASET_NAME = "data0" # name of the npz file
 SRUNET_DATA = "data0_unet_data_augment" # SRUNET data path
-CFG_NAME = "Cascaded_efb3_augmentation_loss_2_metric_on_unet_secondtest" # name of the architecture/configuration for segmentation model
+CFG_NAME = "Cascaded_efb3_loss_augmentation_8_adversarial_nadam" # name of the architecture/configuration for segmentation model
 TRAINED_SRNET = "data0_data0_SRNET_with_augmented_data_[6, 10, 12, 16, 20]" # Path of SR-Unet weight 
 
 epoch_list = [10, 12, 16, 20]
@@ -232,22 +234,31 @@ if unet_or_srunet == 2:
     else:
         unet_main = M.unet(input_size=(train_data.shape[1], train_data.shape[2], train_data.shape[-1]))
 
-    srunet = M.SRUNET_cascade(input_size = (x_train.shape[1], x_train.shape[2], x_train.shape[-1]))
-    srunet.load_weights(TRAINED_SRUNET_PATH + '/' + TRAINED_SRNET + '.h5')
+    #for using SRUNET
+    # srunet = M.SRUNET_cascade(input_size = (x_train.shape[1], x_train.shape[2], x_train.shape[-1]))
+    # srunet.load_weights(TRAINED_SRUNET_PATH + '/' + TRAINED_SRNET + '.h5')
+
+    #for training based on trained encoder loss
+    srunet = M.SRUNET_encoder(input_size = (train_data.shape[1],
+                    train_data.shape[2], train_data.shape[-1]), encoder_weights=encoder_weights)
+
 
     #freezing pretrained SRUNET
     srunet.trainable = False
 
     # Defining Cascaded Architechture
-    encoded_gt = Input(shape=(16,16,512)) #shape of encoded output
+    #encoded_gt = Input(shape=(16,16,512)) #shape of encoded output
+
+    encoded_gt = Input(shape = (8, 8, 1536))
 
     inputs = Input(shape=(train_data.shape[1], train_data.shape[2], train_data.shape[-1]))
     unet_output = unet_main(inputs)
-    encoded, output = srunet(unet_output)
-    model = Model(inputs=[inputs, encoded_gt], outputs=[unet_output, output])
+    encoded, _ = srunet(unet_output) #this is for using the actual SRUNET from paper
 
-    optim = 'adam'
+    model = Model(inputs=[inputs, encoded_gt], outputs=[unet_output])
 
+    #optim = 'adam'
+    optim = keras.optimizers.Nadam(learning_rate=0.001, beta_1=0.9, beta_2=0.999, epsilon=1e-07)
     #loss_func = abs(unet -out)**2 +a(encodere(GT)-encoder(unet)) + b(abs(GT-unet)**2)
     # Define custom loss
     bce = tf.keras.losses.BinaryCrossentropy()
@@ -266,7 +277,7 @@ if unet_or_srunet == 2:
             # loss = tf.keras.backend.sqrt(0.5 * (metrics.mas(encoded_gt, encoded)) + (
             #     dice_loss(y_true, unet_output)))
 
-            loss = metrics.mas(encoded_gt, encoded) + 10*(dice_loss(y_true, unet_output)) #2
+            #loss = metrics.mas(encoded_gt, encoded) + 10*(dice_loss(y_true, unet_output)) #2
 
             # loss = (metrics.mas(unet_output, y_pred) + a * (metrics.mas(encoded_gt, encoded)) + b * (
             #    metrics.mas(y_true, unet_output))) #3
@@ -280,6 +291,16 @@ if unet_or_srunet == 2:
             #loss = metrics.mas(encoded_gt, encoded) + 1 * (dice_loss(y_true, unet_output))  # 7
 
             # loss = bce(y_true, y_pred) + (20*bce(y_true, unet_output))
+
+            mae = tf.keras.losses.MeanAbsoluteError()
+            loss = mae(encoded_gt, encoded) + 10 * (dice_loss(y_true, y_pred))  # 8
+
+#            loss = mae(encoded_gt, encoded) + (dice_loss(y_true, y_pred))  # 9
+
+            #loss = mae(encoded_gt, encoded) + 15*(dice_loss(y_true, y_pred))  # 10
+
+            #mse = tf.keras.losses.MeanSquaredError()
+            #loss = mse(encoded_gt, encoded) # 11
 
             return loss
 
@@ -322,7 +343,7 @@ if (unet_or_srunet ==0 or unet_or_srunet == 1):
     weights_path = "{}/{}.h5".format(LOG_PATH, EXPERIMENT_NAME)
     checkpointer = ModelCheckpoint(filepath=weights_path, verbose=1, monitor='val_jacard', mode='max',
                                    save_best_only=True)
-    reduce_lr = ReduceLROnPlateau(monitor='val_jacard', factor=0.1, patience=5, verbose=1, min_lr=1e-8,
+    reduce_lr = ReduceLROnPlateau(monitor='val_jacard', factor=0.1, patience=8, verbose=1, min_lr=1e-8,
                                   mode='max')  # new_lr = lr * factor
     early_stopping = EarlyStopping(monitor='val_jacard', min_delta=0, verbose=1, patience=18, mode='max',
                                    restore_best_weights=True)
@@ -335,11 +356,11 @@ if (unet_or_srunet ==0 or unet_or_srunet == 1):
     if augmentation_flag == 1:
         #generators
         training_generator = classes.DataGenerator_Augment(x_train, y_train, batch_size=batch_size, shuffle=True)
-        validation_generator = classes.DataGenerator_Augment(x_test, y_test, batch_size=batch_size, shuffle=True)
+        #validation_generator = classes.DataGenerator_Augment(x_test, y_test, batch_size=batch_size, shuffle=True)
 
         #Train model on dataset
         model.fit_generator(generator=training_generator,
-                            validation_data=validation_generator,callbacks=[ie, checkpointer, reduce_lr, csv_logger, early_stopping],
+                            validation_data=(x_test, y_test),callbacks=[ie, checkpointer, reduce_lr, csv_logger, early_stopping],
                         shuffle=True,
                         verbose = 2,epochs = epochs, steps_per_epoch= (len(x_train)*2) // batch_size)
 
@@ -364,20 +385,19 @@ elif (unet_or_srunet ==2):
     #Generating  Encoded results of GT in advance, with has to be inserted to the generators if we wish to use augmentation later
     y_train_encoded, _ = srunet.predict(x=y_train, batch_size=16, verbose=2)
     y_test_encoded, _ = srunet.predict(x=y_test, batch_size=16, verbose=2)
+    print(np.shape(y_train))
+    print(np.shape(y_train_encoded))
 
 
-    # #generators
-    # training_generator = classes.DataGenerator_Augment(x_train, y_train, batch_size=batch_size, shuffle=True)
-    # validation_generator = classes.DataGenerator_Augment(x_test, y_test, batch_size=batch_size, shuffle=True)
 
     # %%
     # Callbacks
     weights_path = "{}/{}.h5".format(LOG_PATH, EXPERIMENT_NAME)
-    checkpointer = ModelCheckpoint(filepath=weights_path, verbose=1, monitor='val_model_2_jacard', mode='max',
+    checkpointer = ModelCheckpoint(filepath=weights_path, verbose=1, monitor='val_jacard', mode='max',
                                    save_best_only=True)
-    reduce_lr = ReduceLROnPlateau(monitor='val_model_2_jacard', factor=0.1, patience=5, verbose=1, min_lr=1e-8,
-                                  mode='max')  # new_lr = lr * factor
-    early_stopping = EarlyStopping(monitor='val_model_2_jacard', min_delta=0, verbose=1, patience=30, mode='max',
+    reduce_lr = ReduceLROnPlateau(monitor='val_jacard', factor=0.1, patience=10, verbose=1, min_lr=1e-8,
+                                   mode='max')  # new_lr = lr * factor
+    early_stopping = EarlyStopping(monitor='val_jacard', min_delta=0, verbose=1, patience=20, mode='max',
                                    restore_best_weights=True)
     csv_logger = CSVLogger('{}/{}_training.csv'.format(LOG_PATH, EXPERIMENT_NAME))
     ie = classes.IntervalEvaluation_cascaded(EXPERIMENT_NAME, LOG_PATH, interval, unet_or_srunet,unet_main,
@@ -391,9 +411,9 @@ elif (unet_or_srunet ==2):
 
         #Train model on dataset
         model.fit_generator(generator=training_generator,
-                            validation_data=([x_test, y_test_encoded],[y_test, y_test]),callbacks=[checkpointer, reduce_lr, csv_logger, early_stopping],
+                            validation_data=([x_test, y_test_encoded],y_test),callbacks=[checkpointer, reduce_lr, csv_logger, early_stopping],
                         shuffle=True,
-                        verbose = 2,epochs = epochs, steps_per_epoch= (len(x_train)*2) // batch_size)
+                        verbose = 2,epochs = epochs, steps_per_epoch= (len(x_train)*2) // batch_size, workers = 0)
 
     else:
         model.fit([x_train, y_train_encoded], y_train,
@@ -406,7 +426,7 @@ elif (unet_or_srunet ==2):
 
     # %%
     # Log training history
-    data_utils.plot_graphs_cascade(model.history,LOG_PATH, EXPERIMENT_NAME)
+    data_utils.plot_graphs(model.history,LOG_PATH, EXPERIMENT_NAME)
 
 
 end_time = time.time()

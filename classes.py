@@ -669,13 +669,16 @@ class DataGenerator_Augment_cascaded(keras.utils.Sequence):
 		X = np.concatenate((X, X_values_augmented), axis=0)
 		y = np.concatenate((y, Y_values_augmented), axis=0)
 
+		#print(np.shape(y))
 		y_encoded, _ = self.srunet.predict(x=y, batch_size=16, verbose=2)
+
+		#print(np.shape(y_encoded))
 
 		# Normalize data to [0-1]
 		# X = X.astype('float32')
 		# X /= 255
 		X = [X, y_encoded]
 
-		y = [y, y]#comment this out for normal cascade. This was to monitor the UNET results as well as shape regularization results
+		y = y#comment this out for normal cascade. This was to monitor the UNET results as well as shape regularization results
 
 		return X, y

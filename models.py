@@ -1,6 +1,6 @@
 from __future__ import division
 from keras.models import Model
-from keras.layers import Input, concatenate, Conv2D, MaxPooling2D, UpSampling2D, Reshape, core, Dropout
+from keras.layers import Input, concatenate, Conv2D, MaxPooling2D, UpSampling2D, Reshape, core, Dropout, Flatten
 from keras.optimizers import Adam
 from keras.callbacks import ModelCheckpoint, LearningRateScheduler
 #from keras.layers import DepthwiseConv2D
@@ -8,9 +8,9 @@ from keras import backend as K
 from keras.optimizers import *
 from keras.layers import *        
 import tensorflow as tf
-
+from efficientnet.keras import EfficientNetB3 as EfficientNet
 import segmentation_models as sm
-
+from tensorflow.keras.models import load_model
 import metrics as M
 import losses as L
 
@@ -188,6 +188,31 @@ def SRUNET_backbone(backbone, input_size, encoder_weights=None):
     l1 = Conv2D(3, (1, 1))(inp)  # map N channels data to 3 channels
     out = base_model(l1)
     model = Model(inputs=[inp], outputs=[out])
+
+    # # Compile model with optim and loss
+    # optim = 'adam'
+    #
+    # # If bin seg, use bce loss
+    # loss_func = 'binary_crossentropy'
+    #
+    # model.compile(optimizer=optim, loss=loss_func, metrics=[M.jacard, M.dice_coef])
+
+    return model
+
+
+#This is for training using adverserial loss
+def SRUNET_encoder(input_size, encoder_weights=None):
+
+    base_model = EfficientNet(weights=encoder_weights, include_top=False, input_shape=((input_size[0], input_size[1], 3)))
+    base_model.trainable = False
+
+    inp = Input(shape=(256, 256, 1))
+    l1 = Conv2D(3, (1, 1))(inp)  # map N channels data to 3 channels
+    out = base_model(l1)
+    #out = Flatten()(out)
+    model = Model(inputs=[inp], outputs=[out, out])
+
+    model.summary()
 
     # # Compile model with optim and loss
     # optim = 'adam'
