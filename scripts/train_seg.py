@@ -44,7 +44,7 @@ import metrics
 # Name data and config types
 DATASET_NAME = "data0" # name of the npz file
 SRUNET_DATA = "data0_unet_data_augment" # SRUNET data path
-CFG_NAME = "Cascaded_efb3_loss_augmentation_8_adversarial_nadam_different_AUG" # name of the architecture/configuration for segmentation model
+CFG_NAME = "Cascaded_efb5_loss_augmentation_8_adversarial_nadam_different_AUG" # name of the architecture/configuration for segmentation model
 TRAINED_SRNET = "data0_data0_SRNET_with_augmented_data_[6, 10, 12, 16, 20]" # Path of SR-Unet weight 
 
 epoch_list = [10, 12, 16, 20]
@@ -60,7 +60,7 @@ best_model = 'data0_unet_efb0'
 
 # Configs for custom encoder
 encoder_flag = 1 # Set 1 to use custom encoder in Unet
-backbone_name = 'efficientnetb3'
+backbone_name = 'efficientnetb5'
 encoder_weights = "imagenet"
     
     
@@ -80,7 +80,7 @@ TRAINED_SRUNET_PATH = os.path.join(ROOT_DIR, "logs", TRAINED_SRNET)
 # %%
 # Train
 lr = 0.0001 # 0.0001
-batch_size = 16
+batch_size = 8
 epochs = 300
 interval = 10 #10 #show correct dice and log it after every ? epochs
 optim = 'adam' #keras.optimizers.Adam(lr)
