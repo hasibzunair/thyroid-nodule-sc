@@ -322,7 +322,7 @@ def get_operating_points(y_gt, y_pr, threshold_step = 0.001):
     #manually setting OP as 0.5
     operation_point = 0.5
    #Find Accuracy, Specificity and Sensitivity
-    y_gt >= 0.5
+    y_gt = y_gt >= 0.5
     y_temp = y_pr >= operation_point
     TP, FP, TN, FN = perf_measure(y_gt, y_temp)
     accuracy = (TP + TN)/(TP+FP+TN+FN)
@@ -359,7 +359,7 @@ def use_operating_points(operation_point, y_gt, y_pr, threshold_step = 0.001):
     # avg_auc = (roc_auc)
 
     #Find Accuracy, Specificity and Sensitivity
-    y_gt >= 0.5
+    y_gt = y_gt >= 0.5
     y_temp = y_pr >= operation_point
     TP, FP, TN, FN = perf_measure(y_gt, y_temp)
     accuracy = (TP + TN)/(TP+FP+TN+FN)
