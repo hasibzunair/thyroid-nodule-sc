@@ -47,10 +47,10 @@ def plot_results(X, Y, path, suffix):
 
 
 path = '../datasets/test/'
-model_name = 'data0_Cascaded_efb3_loss_augmentation_8_adversarial_nadam_different_AUG'
+model_name = 'data0_Cascaded_efb3_loss_augmentation_8_adversarial'
 x_dim, y_dim = 256, 256
 number_of_samples = 910
-sanity_check = 1
+sanity_check = 0
 
 Xdata = np.zeros((number_of_samples, x_dim, y_dim))
 dimensions = np.zeros((number_of_samples, 2))
@@ -80,7 +80,8 @@ output_path = '../logs/{}/test_output/'.format(model_name)
 create_directory(output_path)
 
 sanity_check_path = '../logs/{}/test_output_sanity/'.format(model_name)
-create_directory(sanity_check_path)
+if sanity_check == 1:
+    create_directory(sanity_check_path)
 
 for pid in range(number_of_samples):
 
