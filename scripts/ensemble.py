@@ -27,7 +27,7 @@ import efficientnet.tfkeras
 from tensorflow.keras.models import load_model
 import tensorflow as tf
 from tensorflow.keras import layers
-
+from scipy import ndimage, misc
 # Go back one step to read module
 import sys
 sys.path.insert(0,"..") 
@@ -41,8 +41,8 @@ import metrics
 
 model_name1 ='data0_Cascaded_efb5_loss_augmentation_8_adversarial_nadam_different_AUG' #submission2
 
-model_name2 = 'data0_Cascaded_efb3_loss_augmentation_8_adversarial' #submission0
-#model_name2 = 'data0_Cascaded_efb3_loss_augmentation_8_adversarial_nadam_different_AUG' #submission1
+model_name2 = 'data0_Cascaded_efb3_loss_augmentation_8_adversarial' #submission1
+#model_name2 = 'data0_Cascaded_efb3_loss_augmentation_8_adversarial_nadam_different_AUG' #submission0
 # %%
 # Name data and config types
 DATASET_NAME = "data0" # name of the npz file
@@ -127,5 +127,17 @@ operation_point, _, _, accuracy, specificity, sensitivity, dice, jaccard = data_
 print(
     "\nOr: OP:{:.4f}, Accuracy :{:.4f}, Sensitivity:{:.4f}, Specificity: {:.4f}, Dice: {:.4f}, Jaccard: {:.4f}".format(
         operation_point, accuracy, sensitivity, specificity, dice, jaccard))
+
+
+#post processing
+y_pred5 =  ndimage.median_filter(y_pred4, size=10)
+
+operation_point, _, _, accuracy, specificity, sensitivity, dice, jaccard = data_utils.use_operating_points(0.5, y_test.flatten(), y_pred5.flatten())
+
+print(
+    "\nOr: OP:{:.4f}, Accuracy :{:.4f}, Sensitivity:{:.4f}, Specificity: {:.4f}, Dice: {:.4f}, Jaccard: {:.4f}".format(
+        operation_point, accuracy, sensitivity, specificity, dice, jaccard))
+
+
 
 print('debug')
