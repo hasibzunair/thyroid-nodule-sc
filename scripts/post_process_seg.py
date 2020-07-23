@@ -45,7 +45,7 @@ DATASET_PATH = os.path.join(ROOT_DIR, "datasets", DATASET_FOLDER)
 
 
 data = np.load(DATASET_PATH + '/{}.npz'.format(DATASET_NAME))
-train_data = data['name1'] #/255
+train_data = data['name1']/255
 train_labels = data['name2']
 
 train_data = np.expand_dims(train_data, axis=-1)
