@@ -39,10 +39,20 @@ import models as M
 import losses as l
 import metrics
 
-model_name1 ='data0_Cascaded_efb5_loss_augmentation_8_adversarial_nadam_different_AUG' #submission2
+from skimage.measure import label
+import cv2
 
-model_name2 = 'data0_Cascaded_efb3_loss_augmentation_8_adversarial' #submission1
+def getLargestCC(segmentation):
+    labels = label(np.float32(segmentation>0.5))
+    assert( labels.max() != 0 ) # assume at least 1 CC
+    largestCC = labels == np.argmax(np.bincount(labels.flat)[1:])+1
+    return largestCC
+
+model_name1 ='data0_Cascaded_efb5_loss_augmentation_8_adversarial_nadam_different_AUG' #
+
+model_name2 = 'data0_Cascaded_efb3_loss_augmentation_8_adversarial' #submission1 (better results)
 #model_name2 = 'data0_Cascaded_efb3_loss_augmentation_8_adversarial_nadam_different_AUG' #submission0
+#model_name2 = 'data0_Cascaded_efb0_augmentation' #bad model
 # %%
 # Name data and config types
 DATASET_NAME = "data0" # name of the npz file
@@ -130,12 +140,27 @@ print(
 
 
 #post processing
-y_pred5 =  ndimage.median_filter(y_pred4, size=10)
+y_pred5 = y_pred4
 
+kernel = np.ones((5,5),np.uint8)
+for i in range(len(y_pred1)):
+    y_pred5[i] = ndimage.median_filter(y_pred4[i], size=10)
+    temp = np.float32(y_pred1[i,:,:,0]>0.5)
+
+    temp = getLargestCC(temp) #keeps only largest component
+
+    temp = cv2.morphologyEx(np.float32(temp), cv2.MORPH_OPEN, kernel) # opening
+    temp = cv2.morphologyEx(temp, cv2.MORPH_CLOSE, kernel)# closing
+    #temp = cv2.morphologyEx(temp, cv2.MORPH_ERODE, kernel)# closing
+
+    y_pred5[i,:,:,0] = temp
+
+    if i%200 == 0:
+        print(i)
 operation_point, _, _, accuracy, specificity, sensitivity, dice, jaccard = data_utils.use_operating_points(0.5, y_test.flatten(), y_pred5.flatten())
 
 print(
-    "\nOr: OP:{:.4f}, Accuracy :{:.4f}, Sensitivity:{:.4f}, Specificity: {:.4f}, Dice: {:.4f}, Jaccard: {:.4f}".format(
+    "\nPost: OP:{:.4f}, Accuracy :{:.4f}, Sensitivity:{:.4f}, Specificity: {:.4f}, Dice: {:.4f}, Jaccard: {:.4f}".format(
         operation_point, accuracy, sensitivity, specificity, dice, jaccard))
 
 

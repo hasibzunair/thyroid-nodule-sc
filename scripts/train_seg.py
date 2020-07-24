@@ -44,7 +44,7 @@ import metrics
 # Name data and config types
 DATASET_NAME = "data0" # name of the npz file
 SRUNET_DATA = "data0_unet_data_augment" # SRUNET data path
-CFG_NAME = "Cascaded_efb5_loss_augmentation_8_adversarial_nadam_different_AUG" # name of the architecture/configuration for segmentation model
+CFG_NAME = "Cascaded_eb3_loss_13_jaccard_loss_vggcascade_with_new_AUG" # name of the architecture/configuration for segmentation model
 TRAINED_SRNET = "data0_data0_SRNET_with_augmented_data_[6, 10, 12, 16, 20]" # Path of SR-Unet weight 
 
 epoch_list = [10, 12, 16, 20]
@@ -60,7 +60,8 @@ best_model = 'data0_unet_efb0'
 
 # Configs for custom encoder
 encoder_flag = 1 # Set 1 to use custom encoder in Unet
-backbone_name = 'efficientnetb5'
+backbone_name = 'efficientnetb3'
+srunet_encoder_weights = "imagenet"
 encoder_weights = "imagenet"
     
     
@@ -80,7 +81,7 @@ TRAINED_SRUNET_PATH = os.path.join(ROOT_DIR, "logs", TRAINED_SRNET)
 # %%
 # Train
 lr = 0.0001 # 0.0001
-batch_size = 8
+batch_size = 16
 epochs = 300
 interval = 10 #10 #show correct dice and log it after every ? epochs
 optim = 'adam' #keras.optimizers.Adam(lr)
@@ -240,7 +241,7 @@ if unet_or_srunet == 2:
 
     #for training based on trained encoder loss
     srunet = M.SRUNET_encoder(input_size = (train_data.shape[1],
-                    train_data.shape[2], train_data.shape[-1]), encoder_weights=encoder_weights)
+                    train_data.shape[2], train_data.shape[-1]), encoder_weights=srunet_encoder_weights)
 
 
     #freezing pretrained SRUNET
@@ -249,7 +250,8 @@ if unet_or_srunet == 2:
     # Defining Cascaded Architechture
     #encoded_gt = Input(shape=(16,16,512)) #shape of encoded output
 
-    encoded_gt = Input(shape = (8, 8, 1536))
+    #encoded_gt = Input(shape = (8, 8, 1536)) #efficientnetb0
+    encoded_gt = Input(shape = (8,8,512)) #vgg
 
     inputs = Input(shape=(train_data.shape[1], train_data.shape[2], train_data.shape[-1]))
     unet_output = unet_main(inputs)
@@ -301,6 +303,9 @@ if unet_or_srunet == 2:
 
             #mse = tf.keras.losses.MeanSquaredError()
             #loss = mse(encoded_gt, encoded) # 11
+
+            #loss = mae(encoded_gt, encoded) + 5 * (dice(y_true, y_pred))  # 12
+            loss = mae(encoded_gt, encoded) + 10 * (jacard_loss(y_true, y_pred))  # 13
 
             return loss
 
@@ -383,6 +388,8 @@ if (unet_or_srunet ==0 or unet_or_srunet == 1):
 elif (unet_or_srunet ==2):
     #[unet_output, encoded, output]
     #Generating  Encoded results of GT in advance, with has to be inserted to the generators if we wish to use augmentation later
+    print(np.shape(y_train))
+    srunet.summary()
     y_train_encoded, _ = srunet.predict(x=y_train, batch_size=16, verbose=2)
     y_test_encoded, _ = srunet.predict(x=y_test, batch_size=16, verbose=2)
     print(np.shape(y_train))
@@ -395,7 +402,7 @@ elif (unet_or_srunet ==2):
     weights_path = "{}/{}.h5".format(LOG_PATH, EXPERIMENT_NAME)
     checkpointer = ModelCheckpoint(filepath=weights_path, verbose=1, monitor='val_jacard', mode='max',
                                    save_best_only=True)
-    reduce_lr = ReduceLROnPlateau(monitor='val_jacard', factor=0.1, patience=10, verbose=1, min_lr=1e-8,
+    reduce_lr = ReduceLROnPlateau(monitor='val_jacard', factor=0.01, patience=7, verbose=1, min_lr=1e-8,
                                    mode='max')  # new_lr = lr * factor
     early_stopping = EarlyStopping(monitor='val_jacard', min_delta=0, verbose=1, patience=20, mode='max',
                                    restore_best_weights=True)

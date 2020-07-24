@@ -1,5 +1,6 @@
 from __future__ import division
 from keras.models import Model
+from keras.applications.vgg16 import VGG16
 from keras.layers import Input, concatenate, Conv2D, MaxPooling2D, UpSampling2D, Reshape, core, Dropout, Flatten
 from keras.optimizers import Adam
 from keras.callbacks import ModelCheckpoint, LearningRateScheduler
@@ -162,7 +163,7 @@ def SRUNET_cascade(input_size=(256, 256, 1)):
 
 def unet_backbone(backbone, input_size, encoder_weights=None):
     
-    base_model = sm.Unet(backbone_name=backbone, input_shape=(input_size[0], input_size[1], 3), classes=1, activation='sigmoid', encoder_weights=encoder_weights)
+    base_model = sm.Unet(backbone_name=backbone, input_shape=(input_size[0], input_size[1], 3), classes=1, activation='sigmoid', encoder_weights=encoder_weights , decoder_use_batchnorm = True)
     
     inp = Input(shape=(256, 256, 1))
     l1 = Conv2D(3, (1, 1))(inp) # map N channels data to 3 channels
@@ -203,7 +204,13 @@ def SRUNET_backbone(backbone, input_size, encoder_weights=None):
 #This is for training using adverserial loss
 def SRUNET_encoder(input_size, encoder_weights=None):
 
-    base_model = EfficientNet(weights=encoder_weights, include_top=False, input_shape=((input_size[0], input_size[1], 3)))
+    #base_model = EfficientNet(weights=encoder_weights, include_top=False, input_shape=((input_size[0], input_size[1], 3)))
+
+    base_model =  VGG16(include_top=False, input_shape=(256, 256, 3))
+
+
+    # remove the output layer
+    base_model.summary()
     base_model.trainable = False
 
     inp = Input(shape=(256, 256, 1))
