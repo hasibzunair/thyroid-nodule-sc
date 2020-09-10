@@ -26,6 +26,7 @@ import tensorflow as tf
 from tqdm import tqdm
 from imgaug import augmenters as iaa   
 
+#-------------- This script need model which can be produced by running train_classifier_efficientnet_augmentation.py--------"
 
 ######################  GPU ERROR  #######################
 
